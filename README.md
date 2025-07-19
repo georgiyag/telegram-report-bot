@@ -61,8 +61,8 @@ Telegram Report Bot - это полнофункциональный бот дл�
 #### Windows
 ```batch
 # Клонируйте репозиторий
-git clone <repository-url>
-cd telegram_report_bot
+git clone https://github.com/YOUR_USERNAME/telegram-report-bot.git
+cd telegram-report-bot
 
 # Запустите скрипт установки
 scripts\setup.bat
@@ -71,13 +71,15 @@ scripts\setup.bat
 #### Linux/Mac
 ```bash
 # Клонируйте репозиторий
-git clone <repository-url>
-cd telegram_report_bot
+git clone https://github.com/YOUR_USERNAME/telegram-report-bot.git
+cd telegram-report-bot
 
 # Сделайте скрипт исполняемым и запустите
 chmod +x scripts/setup.sh
 ./scripts/setup.sh
 ```
+
+> 📋 **Размещение на GitHub**: Подробная инструкция в файле [GITHUB_DEPLOYMENT.md](GITHUB_DEPLOYMENT.md)
 
 ### Ручная установка
 
