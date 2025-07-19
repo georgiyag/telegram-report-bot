@@ -136,6 +136,7 @@ class ReportHandler:
             return ConversationHandler.END
         
         # Создаем новый отчет
+        from datetime import datetime
         report = WeeklyReport(
             user_id=user.id,
             username=user.username or "",
@@ -143,7 +144,9 @@ class ReportHandler:
             week_start=start_date,
             week_end=end_date,
             completed_tasks="",  # Будет заполнено позже
-            next_week_plans=""   # Будет заполнено позже
+            next_week_plans="",   # Будет заполнено позже
+            created_at=datetime.now(),
+            submitted_at=datetime.now()
         )
         
         self.user_reports[user.id] = report
@@ -156,16 +159,19 @@ class ReportHandler:
             f"Выберите ваш отдел:"
         )
         
+        # Получаем клавиатуру с отделами из базы данных
+        departments_keyboard = await get_departments_keyboard(self.db_manager)
+        
         if update.callback_query:
             await update.callback_query.edit_message_text(
                 text=message_text,
-                reply_markup=get_departments_keyboard(),
+                reply_markup=departments_keyboard,
                 parse_mode='HTML'
             )
         else:
             await update.message.reply_text(
                 text=message_text,
-                reply_markup=get_departments_keyboard(),
+                reply_markup=departments_keyboard,
                 parse_mode='HTML'
             )
         

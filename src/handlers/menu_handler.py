@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes, ConversationHandler
 from loguru import logger
 
 from config import settings, MESSAGES
-from .states import MainMenuStates, get_main_menu_keyboard, get_back_to_main_keyboard
+from .states import MainMenuStates, get_main_menu_keyboard, get_back_to_main_keyboard, get_persistent_menu_keyboard
 
 class MenuHandler:
     """Обработчик главного меню с кнопками"""
@@ -29,6 +29,7 @@ class MenuHandler:
             
             welcome_text = (
                 f"🏠 <b>Главное меню</b>\n\n"
+                f"🏢 <b>Система отправки резюме за неделю АО ЭМЗ ФИРМА СЭЛМА</b>\n\n"
                 f"Добро пожаловать, {user.first_name}!\n\n"
                 f"Выберите действие:"
             )
@@ -50,6 +51,12 @@ class MenuHandler:
                 text=welcome_text,
                 reply_markup=get_main_menu_keyboard(is_admin),
                 parse_mode='HTML'
+            )
+            
+            # Добавляем постоянную клавиатуру с кнопкой меню
+            await update.message.reply_text(
+                "Используйте кнопку 'Меню' внизу для быстрого доступа к главному меню.",
+                reply_markup=get_persistent_menu_keyboard()
             )
         
         return MainMenuStates.MAIN_MENU
@@ -91,6 +98,19 @@ class MenuHandler:
             # Возврат в главное меню
             return await self.show_main_menu(update, context)
         
+        return MainMenuStates.MAIN_MENU
+    
+    async def handle_menu_button(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        """Обработка нажатия кнопки 'Меню' из постоянной клавиатуры"""
+        if update.message and update.message.text == "🏠 Меню":
+            user = update.effective_user
+            is_admin = user.id in settings.get_admin_ids()
+            await update.message.reply_text(
+                text=MESSAGES['menu_main'],
+                reply_markup=get_main_menu_keyboard(is_admin),
+                parse_mode='HTML'
+            )
+            return MainMenuStates.MAIN_MENU
         return MainMenuStates.MAIN_MENU
     
     async def cancel_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

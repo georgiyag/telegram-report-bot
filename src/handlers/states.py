@@ -19,6 +19,39 @@ class AdminStates:
     SEND_REMINDER = 12
     MANAGE_USERS = 13
     EXPORT_DATA = 14
+    WAITING_INPUT = 15
+    
+    # Состояния для мастера добавления пользователя
+    ADD_USER_STEP1_ID = 16
+    ADD_USER_STEP2_USERNAME = 17
+    ADD_USER_STEP3_FULLNAME = 18
+    ADD_USER_STEP4_DEPARTMENT = 19
+    ADD_USER_STEP5_POSITION = 20
+    ADD_USER_STEP6_EMPLOYEE_ID = 21
+    ADD_USER_STEP7_EMAIL = 22
+    ADD_USER_STEP8_PHONE = 23
+    ADD_USER_CONFIRM = 24
+    
+    # Состояния для мастера добавления отдела
+    ADD_DEPT_STEP1_CODE = 25
+    ADD_DEPT_STEP2_NAME = 26
+    ADD_DEPT_STEP3_DESCRIPTION = 27
+    ADD_DEPT_STEP4_HEAD = 28
+    ADD_DEPT_CONFIRM = 29
+    
+    # Состояния для удаления
+    DELETE_USER_SELECT = 30
+    DELETE_USER_CONFIRM = 31
+    DELETE_DEPT_SELECT = 32
+    DELETE_DEPT_CONFIRM = 33
+    DELETE_CONFIRM = 34
+    
+    # Состояния для управления административными правами
+    ADMIN_RIGHTS = 35
+    GRANT_ADMIN_SELECT = 36
+    GRANT_ADMIN_CONFIRM = 37
+    REVOKE_ADMIN_SELECT = 38
+    REVOKE_ADMIN_CONFIRM = 39
 
 # Состояния для настройки пользователя
 class UserStates:
@@ -67,7 +100,7 @@ STATES = {
 }
 
 # Клавиатуры для состояний
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 
 def get_main_menu_keyboard(is_admin=False):
     """Главное меню с кнопками"""
@@ -82,17 +115,34 @@ def get_main_menu_keyboard(is_admin=False):
     
     return InlineKeyboardMarkup(keyboard)
 
+def get_persistent_menu_keyboard():
+    """Постоянная клавиатура с кнопкой меню"""
+    keyboard = [
+        [KeyboardButton("🏠 Меню")]
+    ]
+    return ReplyKeyboardMarkup(
+        keyboard,
+        resize_keyboard=True,
+        one_time_keyboard=False,
+        is_persistent=True
+    )
+
+def remove_persistent_keyboard():
+    """Удаление постоянной клавиатуры"""
+    return ReplyKeyboardRemove()
+
 def get_report_confirmation_keyboard():
     """Клавиатура для подтверждения отчета"""
     keyboard = [
         [InlineKeyboardButton("✅ Отправить отчет", callback_data="confirm_report")],
         [InlineKeyboardButton("✏️ Редактировать", callback_data="edit_report")],
-        [InlineKeyboardButton("❌ Отменить", callback_data="cancel_report")]
+        [InlineKeyboardButton("❌ Отменить", callback_data="cancel_report")],
+        [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
 def get_admin_main_keyboard():
-    """Главная клавиатура админ-панели"""
+    """Клавиатура главного меню администратора"""
     keyboard = [
         [InlineKeyboardButton("📊 Просмотр отчетов", callback_data="admin_view_reports")],
         [InlineKeyboardButton("📢 Отправить напоминание", callback_data="admin_send_reminder")],
@@ -103,10 +153,43 @@ def get_admin_main_keyboard():
     ]
     return InlineKeyboardMarkup(keyboard)
 
+def get_wizard_navigation_keyboard(back_callback=None, skip_callback=None, cancel_callback="wizard_cancel"):
+    """Клавиатура навигации для мастеров"""
+    keyboard = []
+    
+    row = []
+    if back_callback:
+        row.append(InlineKeyboardButton("⬅️ Назад", callback_data=back_callback))
+    if skip_callback:
+        row.append(InlineKeyboardButton("⏭️ Пропустить", callback_data=skip_callback))
+    if row:
+        keyboard.append(row)
+    
+    keyboard.append([InlineKeyboardButton("❌ Отменить", callback_data=cancel_callback)])
+    return InlineKeyboardMarkup(keyboard)
+
+def get_confirmation_keyboard(confirm_callback, cancel_callback="wizard_cancel"):
+    """Клавиатура подтверждения"""
+    keyboard = [
+        [InlineKeyboardButton("✅ Подтвердить", callback_data=confirm_callback)],
+        [InlineKeyboardButton("✏️ Редактировать", callback_data="wizard_edit")],
+        [InlineKeyboardButton("❌ Отменить", callback_data=cancel_callback)]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+def get_delete_confirmation_keyboard(confirm_callback, cancel_callback="delete_cancel"):
+    """Клавиатура подтверждения удаления"""
+    keyboard = [
+        [InlineKeyboardButton("🗑️ Да, удалить", callback_data=confirm_callback)],
+        [InlineKeyboardButton("❌ Отменить", callback_data=cancel_callback)]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
 def get_cancel_keyboard():
     """Клавиатура для отмены операции"""
     keyboard = [
-        [InlineKeyboardButton("❌ Отменить", callback_data="cancel")]
+        [InlineKeyboardButton("❌ Отменить", callback_data="cancel")],
+        [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -114,7 +197,8 @@ def get_skip_keyboard():
     """Клавиатура для пропуска необязательного поля"""
     keyboard = [
         [InlineKeyboardButton("⏭️ Пропустить", callback_data="skip")],
-        [InlineKeyboardButton("❌ Отменить", callback_data="cancel")]
+        [InlineKeyboardButton("❌ Отменить", callback_data="cancel")],
+        [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -125,16 +209,26 @@ def get_back_to_main_keyboard():
     ]
     return InlineKeyboardMarkup(keyboard)
 
-def get_departments_keyboard():
-    """Клавиатура для выбора отдела"""
-    from config import DEPARTMENTS
-    
+async def get_departments_keyboard(db_manager):
+    """Клавиатура для выбора отдела из базы данных"""
     keyboard = []
-    # Добавляем кнопки отделов по 1 в ряд для удобства
-    for dept in DEPARTMENTS:
-        keyboard.append([InlineKeyboardButton(dept, callback_data=f"dept_{dept}")])
     
-    # Добавляем кнопку отмены
+    try:
+        # Получаем активные отделы из базы данных
+        departments = await db_manager.get_departments()
+        active_departments = [dept for dept in departments if dept.is_active]
+        
+        # Добавляем кнопки отделов по 1 в ряд для удобства
+        for dept in active_departments:
+            keyboard.append([InlineKeyboardButton(dept.name, callback_data=f"dept_{dept.name}")])
+    except Exception as e:
+        # В случае ошибки используем резервный список
+        from config import DEPARTMENTS
+        for dept in DEPARTMENTS:
+            keyboard.append([InlineKeyboardButton(dept, callback_data=f"dept_{dept}")])
+    
+    # Добавляем кнопки отмены и возврата в главное меню
     keyboard.append([InlineKeyboardButton("❌ Отменить", callback_data="cancel")])
+    keyboard.append([InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")])
     
     return InlineKeyboardMarkup(keyboard)

@@ -44,6 +44,20 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+test_results_*.json
+
+# Temporary and debug files
+add_test_*.py
+clear_*.py
+fix_*.py
+check_*.py
+*_test.py
+comprehensive_*.py
+
+# Visual Studio
+.vs/
+*.sln
+*.vcxproj*
 
 # OS
 .DS_Store

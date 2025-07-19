@@ -35,10 +35,6 @@ class ReportProcessor:
                 self.update_report(processed_report)
             else:
                 logger.warning("Ollama недоступен, отчет обработан без ИИ анализа")
-                report.mark_as_processed(
-                    summary="Автоматическая обработка недоступна",
-                    analysis="ИИ анализ временно недоступен"
-                )
                 self.update_report(report)
             
             # 4. Отправляем в групповой чат
@@ -239,9 +235,9 @@ class ReportProcessor:
         """Получение всех сотрудников"""
         return self.employees_storage.copy()
     
-    def get_employees_by_department(self, department: str) -> List[Employee]:
-        """Получение сотрудников по отделу"""
-        return [emp for emp in self.employees_storage if emp.department == department]
+    def get_employees_by_department(self, department_code: str) -> List[Employee]:
+        """Получение сотрудников по коду отдела"""
+        return [emp for emp in self.employees_storage if emp.department_code and emp.department_code == department_code]
     
     async def export_reports_to_text(self, start_date: datetime, end_date: datetime) -> str:
         """Экспорт отчетов в текстовый формат"""
@@ -262,7 +258,7 @@ class ReportProcessor:
 Сотрудник: {report.full_name}
 Отдел: {report.department or 'Не указан'}
 Должность: {report.position or 'Не указана'}
-Период: {report.get_week_string()}
+Период: {report.week_start.strftime('%d.%m.%Y')} - {report.week_end.strftime('%d.%m.%Y')}
 Статус: {report.status}
 Отправлено: {report.submitted_at.strftime('%d.%m.%Y %H:%M')}
 
@@ -297,7 +293,7 @@ class ReportProcessor:
 
 📈 Статистика:
 • Всего отчетов: {len(user_reports)}
-• Период: {user_reports[-1].get_week_string()} - {user_reports[0].get_week_string()}
+• Период: {user_reports[-1].week_start.strftime('%d.%m.%Y')} - {user_reports[-1].week_end.strftime('%d.%m.%Y')} - {user_reports[0].week_start.strftime('%d.%m.%Y')} - {user_reports[0].week_end.strftime('%d.%m.%Y')}
 • Средняя длина отчета: {sum(len(r.completed_tasks) for r in user_reports) // len(user_reports)} символов
 • Регулярность: {len(user_reports)} из последних 8 недель"""
         

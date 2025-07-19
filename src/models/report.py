@@ -1,4 +1,4 @@
-from datetime import datetime, date
+from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field
 
@@ -21,9 +21,23 @@ class WeeklyReport(BaseModel):
     department: Optional[str] = Field(None, description="Отдел")
     position: Optional[str] = Field(None, description="Должность")
     submitted_at: Optional[datetime] = Field(None, description="Время подачи отчета")
+    created_at: Optional[datetime] = Field(None, description="Время создания отчета")
     is_late: bool = Field(False, description="Опоздал ли с подачей отчета")
     
-
+    # Статус отчета
+    status: str = Field("draft", description="Статус отчета: draft, submitted, processed")
+    
+    # Поля для обработки ИИ
+    summary: Optional[str] = Field(None, description="Краткое резюме отчета")
+    analysis: Optional[str] = Field(None, description="Анализ отчета")
+    is_processed: bool = Field(False, description="Обработан ли отчет ИИ")
+    
+    def mark_as_processed(self, summary: str, analysis: str):
+        """Отметить отчет как обработанный ИИ"""
+        self.summary = summary
+        self.analysis = analysis
+        self.is_processed = True
+        self.status = "processed"
     
     class Config:
         json_encoders = {
@@ -41,6 +55,7 @@ class WeeklyReport(BaseModel):
                 "problems": "Задержка поставки материалов",
                 "next_week_plans": "1. Начать новый проект\n2. Провести встречу с клиентом",
                 "department": "IT отдел",
-                "position": "Разработчик"
+                "position": "Разработчик",
+                "status": "submitted"
             }
         }

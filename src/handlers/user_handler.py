@@ -1,6 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 from database import DatabaseManager
+from models.department import Employee
 import logging
 
 
@@ -15,35 +16,48 @@ class UserHandler:
         
         # Проверяем, есть ли пользователь в базе данных
         try:
-            employee = self.db_manager.get_employee_by_telegram_id(user.id)
+            employee = await self.db_manager.get_employee_by_user_id(user.id)
             if not employee:
                 # Регистрируем нового пользователя
-                from ..models.department import Employee
                 new_employee = Employee(
-                    telegram_id=user.id,
+                    user_id=user.id,
                     username=user.username,
                     full_name=f"{user.first_name} {user.last_name or ''}".strip(),
                     email=None,
-                    department_id=None,
+                    department_code=None,
                     position=None,
                     is_active=True
                 )
-                self.db_manager.add_employee(new_employee)
+                await self.db_manager.add_employee(new_employee)
                 self.logger.info(f"Зарегистрирован новый пользователь: {user.id}")
         except Exception as e:
             self.logger.error(f"Ошибка при регистрации пользователя: {e}")
         
         welcome_text = (
             f"👋 Привет, {user.first_name}!\n\n"
-            "🤖 Я бот для сбора еженедельных отчетов.\n\n"
+            "🏢 <b>Система отправки резюме за неделю АО ЭМЗ ФИРМА СЭЛМА </b>\n\n"
+            "🤖 Я бот, который поможет легко и быстро отправить Ваше резюме.\n\n"
             "📋 Доступные команды:\n"
             "• /report - создать новый отчет\n"
             "• /help - помощь\n"
-            "• /status - статус отчетов\n\n"
+            "• /status - статус отчетов\n"
+            "• /menu - главное меню\n\n"
             "Выберите действие:"
         )
         
-        await update.message.reply_text(welcome_text)
+        await update.message.reply_text(welcome_text, parse_mode='HTML')
+        
+        # Показываем главное меню после приветствия
+        from .states import MainMenuStates, get_main_menu_keyboard
+        
+        # Отправляем главное меню с кнопками
+        from config import settings
+        keyboard = get_main_menu_keyboard(user.id in settings.get_admin_ids())
+        await update.message.reply_text(
+            "Выберите действие:",
+            reply_markup=keyboard
+        )
+        return MainMenuStates.MAIN_MENU
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработка команды /help"""

@@ -198,8 +198,8 @@ def validate_report_status(status: str) -> Tuple[bool, Optional[str]]:
 
 def validate_email(email: str) -> Tuple[bool, Optional[str]]:
     """Валидация email адреса"""
-    if not email:
-        return True, None  # Email может быть пустым
+    if not email or not email.strip():
+        return False, "Email не может быть пустым"
     
     email = email.strip().lower()
     

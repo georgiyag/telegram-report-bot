@@ -91,11 +91,6 @@ class OllamaService:
             logger.info(f"Отчет пользователя {report.user_id} успешно обработан")
         else:
             logger.warning(f"Не удалось обработать отчет пользователя {report.user_id}")
-            # Отмечаем как обработанный даже без ИИ анализа
-            report.mark_as_processed(
-                summary="Автоматическая обработка недоступна",
-                analysis="Анализ временно недоступен"
-            )
         
         return report
     
@@ -107,7 +102,7 @@ class OllamaService:
 - ФИО: {report.full_name}
 - Отдел: {report.department or 'Не указан'}
 - Должность: {report.position or 'Не указана'}
-- Период: {report.get_week_string()}
+- Период: {report.week_start.strftime('%d.%m.%Y')} - {report.week_end.strftime('%d.%m.%Y')}
 
 Выполненные задачи:
 {report.completed_tasks}
@@ -134,7 +129,7 @@ class OllamaService:
         """Создание промпта для краткой сводки"""
         return f"""Создай краткую сводку еженедельного отчета сотрудника для руководства.
 
-Отчет сотрудника {report.full_name} ({report.department or 'отдел не указан'}) за {report.get_week_string()}:
+Отчет сотрудника {report.full_name} ({report.department or 'отдел не указан'}) за {report.week_start.strftime('%d.%m.%Y')} - {report.week_end.strftime('%d.%m.%Y')}:
 
 Выполненные задачи:
 {report.completed_tasks}
@@ -201,7 +196,7 @@ class OllamaService:
         reports_summary = []
         for i, report in enumerate(user_reports[-4:], 1):  # Последние 4 недели
             reports_summary.append(f"""
-Неделя {i} ({report.get_week_string()}):
+Неделя {i} ({report.week_start.strftime('%d.%m.%Y')} - {report.week_end.strftime('%d.%m.%Y')}):
 Задачи: {report.completed_tasks[:150]}...
 Достижения: {report.achievements[:100]}...
 Проблемы: {report.problems[:100]}...

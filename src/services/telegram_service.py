@@ -86,7 +86,7 @@ class TelegramService:
         formatted = f"""{emoji} <b>Еженедельный отчет</b>
 
 👤 <b>Сотрудник:</b> {report.full_name}
-📅 <b>Период:</b> {report.get_week_string()}
+📅 <b>Период:</b> {report.week_start.strftime('%d.%m.%Y')} - {report.week_end.strftime('%d.%m.%Y')}
 🏢 <b>Отдел:</b> {report.department or 'Не указан'}
 💼 <b>Должность:</b> {report.position or 'Не указана'}
 
@@ -109,7 +109,12 @@ class TelegramService:
         
         # Добавляем время отправки
         submit_time = report.submitted_at or report.created_at
-        formatted += f"\n⏰ <b>Отправлено:</b> {submit_time.strftime('%d.%m.%Y %H:%M')}"
+        if submit_time:
+            formatted += f"\n⏰ <b>Отправлено:</b> {submit_time.strftime('%d.%m.%Y %H:%M')}"
+        else:
+            from datetime import datetime
+            current_time = datetime.now()
+            formatted += f"\n⏰ <b>Отправлено:</b> {current_time.strftime('%d.%m.%Y %H:%M')}"
         
         return formatted
     
@@ -186,7 +191,7 @@ class TelegramService:
 
 Спасибо, {report.full_name}!
 
-Твой еженедельный отчет за период {report.get_week_string()} успешно получен и будет обработан.
+Твой еженедельный отчет за период {report.week_start.strftime('%d.%m.%Y')} - {report.week_end.strftime('%d.%m.%Y')} успешно получен и будет обработан.
 
 📋 <b>Краткая информация:</b>
 • Задачи: {len(report.completed_tasks.split('\n')) if report.completed_tasks else 0} пунктов
