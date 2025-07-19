@@ -10,8 +10,7 @@
 2. **Выполните команды в терминале:**
 
 ```bash
-# Замените YOUR_USERNAME на ваш GitHub username
-git remote add origin https://github.com/YOUR_USERNAME/telegram-report-bot.git
+git remote add origin https://github.com/georgiyag/telegram-report-bot.git
 git branch -M main
 git push -u origin main
 ```
@@ -19,7 +18,7 @@ git push -u origin main
 ## ✅ Готово!
 
 Ваш проект будет доступен по адресу:
-`https://github.com/YOUR_USERNAME/telegram-report-bot`
+`https://github.com/georgiyag/telegram-report-bot`
 
 ---
 

@@ -18,8 +18,8 @@
 После создания репозитория GitHub покажет инструкции. Выполните следующие команды в терминале:
 
 ```bash
-# Добавить удаленный репозиторий (замените YOUR_USERNAME и YOUR_REPO_NAME)
-git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
+# Добавить удаленный репозиторий
+git remote add origin https://github.com/georgiyag/telegram-report-bot.git
 
 # Переименовать ветку в main (современный стандарт)
 git branch -M main
