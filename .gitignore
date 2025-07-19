@@ -1,18 +1,12 @@
-# Virtual Environment
-venv/
-env/
-ENV/
-
-# Environment variables
-.env
-.env.local
-.env.production
-
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# C extensions
 *.so
+
+# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -29,36 +23,70 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# IDE
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Editors
 .vscode/
 .idea/
-*.swp
-*.swo
-
-# Logs
-*.log
-logs/
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-test_results_*.json
-
-# Temporary and debug files
-add_test_*.py
-clear_*.py
-fix_*.py
-check_*.py
-*_test.py
-comprehensive_*.py
-
-# Visual Studio
-.vs/
-*.sln
-*.vcxproj*
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Executables
+rustup-init.exe
