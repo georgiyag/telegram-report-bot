@@ -1,8 +1,11 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-from database import DatabaseManager
-from models.department import Employee
+from loguru import logger
+
 import logging
+from config import MESSAGES
+from database import DatabaseManager, Employee
+from utils.navigation import get_breadcrumb_path, create_keyboard
 
 
 class UserHandler:
@@ -34,15 +37,16 @@ class UserHandler:
             self.logger.error(f"Ошибка при регистрации пользователя: {e}")
         
         welcome_text = (
-            f"👋 Привет, {user.first_name}!\n\n"
-            "🏢 <b>Система отправки резюме за неделю АО ЭМЗ ФИРМА СЭЛМА </b>\n\n"
-            "🤖 Я бот, который поможет легко и быстро отправить Ваше резюме.\n\n"
-            "📋 Доступные команды:\n"
-            "• /report - создать новый отчет\n"
-            "• /help - помощь\n"
-            "• /status - статус отчетов\n"
-            "• /menu - главное меню\n\n"
-            "Выберите действие:"
+            f"👋 Добро пожаловать, <b>{user.first_name}</b>!\n\n"
+            f"🏢 <b>Система отправки резюме за неделю</b>\n"
+            f"<i>АО ЭМЗ ФИРМА СЭЛМА</i>\n\n"
+            f"🤖 Я помогу вам легко и быстро отправить еженедельный отчет.\n\n"
+            f"✨ <b>Что я умею:</b>\n"
+            f"📝 Создание еженедельных отчетов\n"
+            f"📊 Проверка статуса отчетов\n"
+            f"🔔 Напоминания о сроках\n"
+            f"❓ Помощь и поддержка\n\n"
+            f"🎯 Используйте кнопки ниже для навигации!"
         )
         
         await update.message.reply_text(welcome_text, parse_mode='HTML')
@@ -60,67 +64,87 @@ class UserHandler:
         return MainMenuStates.MAIN_MENU
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Обработка команды /help"""
+        """Показать справку"""
+        breadcrumb = get_breadcrumb_path("help")
+        
         help_text = (
-            "📖 **Помощь по использованию бота**\n\n"
-            "🤖 Этот бот предназначен для сбора еженедельных отчетов сотрудников.\n\n"
-            "📋 **Доступные команды:**\n"
-            "• `/start` - начать работу с ботом\n"
-            "• `/report` - создать новый еженедельный отчет\n"
-            "• `/status` - проверить статус ваших отчетов\n"
-            "• `/help` - показать эту справку\n\n"
-            "📝 **Как создать отчет:**\n"
-            "1. Используйте команду `/report`\n"
-            "2. Следуйте инструкциям бота\n"
-            "3. Заполните все необходимые поля\n"
-            "4. Подтвердите отправку отчета\n\n"
-            "❓ **Нужна помощь?**\n"
-            "Обратитесь к администратору или в службу поддержки."
+            f"{breadcrumb}\n\n"
+            f"📚 <b>Справка по использованию бота</b>\n\n"
+            f"🚀 <b>Основные команды:</b>\n"
+            f"• <code>/start</code> - запуск бота и регистрация\n"
+            f"• <code>/report</code> - создание нового отчета\n"
+            f"• <code>/status</code> - проверка статуса отчетов\n"
+            f"• <code>/menu</code> - главное меню\n\n"
+            f"📝 <b>Как создать отчет:</b>\n"
+            f"1️⃣ Нажмите кнопку 'Создать отчет'\n"
+            f"2️⃣ Опишите выполненные задачи\n"
+            f"3️⃣ Укажите планы на следующую неделю\n"
+            f"4️⃣ Отправьте отчет на проверку\n\n"
+            f"⏰ <b>Сроки подачи:</b>\n"
+            f"Отчеты принимаются до пятницы 18:00\n\n"
+            f"🔔 <b>Уведомления:</b>\n"
+            f"Бот напомнит о необходимости подачи отчета\n\n"
+            f"❓ <b>Нужна помощь?</b>\n"
+            f"Обратитесь к администратору или HR-отделу"
         )
         
-        await update.message.reply_text(help_text, parse_mode='Markdown')
+        keyboard = create_keyboard("help")
+        await update.message.reply_text(help_text, parse_mode='HTML', reply_markup=keyboard)
 
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработка команды /status"""
-        user_id = update.effective_user.id
+        user = update.effective_user
+        breadcrumb = get_breadcrumb_path("status")
         
         try:
-            # Получаем отчеты пользователя из базы данных
-            reports = self.db_manager.get_reports_by_user(user_id)
+            # Получаем статистику отчетов пользователя
+            reports = await self.db_manager.get_user_reports(user.id)
             
             if not reports:
                 status_text = (
-                    "📊 **Статус ваших отчетов**\n\n"
-                    "❌ У вас пока нет отчетов.\n\n"
-                    "Используйте команду `/report` для создания первого отчета."
+                    f"{breadcrumb}\n\n"
+                    f"📊 <b>Статус ваших отчетов</b>\n\n"
+                    f"📝 <i>У вас пока нет отчетов</i>\n\n"
+                    f"🚀 <b>Начните прямо сейчас!</b>\n"
+                    f"Создайте свой первый отчет, нажав кнопку ниже\n\n"
+                    f"💡 <b>Совет:</b> Регулярная подача отчетов\n"
+                    f"поможет отслеживать ваш прогресс"
                 )
             else:
-                status_text = "📊 **Статус ваших отчетов**\n\n"
+                # Подсчет статистики
+                approved_count = len([r for r in reports if r.status == "approved"])
+                pending_count = len([r for r in reports if r.status == "pending"])
+                rejected_count = len([r for r in reports if r.status == "rejected"])
                 
-                # Показываем последние 5 отчетов
-                for report in reports[-5:]:
-                    date_str = report.submitted_at.strftime('%d.%m.%Y %H:%M') if report.submitted_at else 'не отправлен'
-                    week_str = f"{report.week_start.strftime('%d.%m')} - {report.week_end.strftime('%d.%m.%Y')}"
-                    status_icon = "⚠️" if report.is_late else "✅"
-                    
-                    status_text += f"{status_icon} **Неделя {week_str}**\n"
-                    status_text += f"   📅 Отправлен: {date_str}\n\n"
+                status_text = (
+                    f"{breadcrumb}\n\n"
+                    f"📊 <b>Статус ваших отчетов</b>\n\n"
+                    f"📈 <b>Общая статистика:</b>\n"
+                    f"✅ Одобрено: <b>{approved_count}</b>\n"
+                    f"⏳ На рассмотрении: <b>{pending_count}</b>\n"
+                    f"❌ Отклонено: <b>{rejected_count}</b>\n"
+                    f"📝 Всего отчетов: <b>{len(reports)}</b>\n\n"
+                    f"📋 <b>Последние отчеты:</b>\n"
+                )
                 
-                # Статистика
-                total_reports = len(reports)
-                late_reports = sum(1 for r in reports if r.is_late)
-                on_time_reports = total_reports - late_reports
+                for report in reports[-5:]:  # Показываем последние 5 отчетов
+                    status_emoji = "✅" if report.status == "approved" else "⏳" if report.status == "pending" else "❌"
+                    status_name = "Одобрен" if report.status == "approved" else "На рассмотрении" if report.status == "pending" else "Отклонен"
+                    status_text += f"{status_emoji} <code>{report.week_start.strftime('%d.%m.%Y')}</code> - {status_name}\n"
                 
-                status_text += "📈 **Статистика:**\n"
-                status_text += f"• Всего отчетов: {total_reports}\n"
-                status_text += f"• Вовремя: {on_time_reports}\n"
-                status_text += f"• С опозданием: {late_reports}\n"
+                if len(reports) > 5:
+                    status_text += f"\n<i>... и еще {len(reports) - 5} отчетов</i>"
             
-            await update.message.reply_text(status_text, parse_mode='Markdown')
+            keyboard = create_keyboard("status")
+            await update.message.reply_text(status_text, parse_mode='HTML', reply_markup=keyboard)
             
         except Exception as e:
-            self.logger.error(f"Ошибка получения статуса отчетов: {e}")
-            await update.message.reply_text(
-                "❌ Произошла ошибка при получении статуса отчетов. "
-                "Попробуйте позже."
+            logger.error(f"Ошибка при получении статуса отчетов: {e}")
+            error_text = (
+                f"{breadcrumb}\n\n"
+                f"❌ <b>Ошибка</b>\n\n"
+                f"Не удалось загрузить статус отчетов.\n"
+                f"Попробуйте позже или обратитесь к администратору."
             )
+            keyboard = create_keyboard("status")
+            await update.message.reply_text(error_text, parse_mode='HTML', reply_markup=keyboard)

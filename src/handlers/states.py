@@ -18,6 +18,12 @@ class AdminStates:
     VIEW_REPORTS = 11
     SEND_REMINDER = 12
     MANAGE_USERS = 13
+    MANAGE_DEPARTMENTS = 40
+    ADD_DEPARTMENT_NAME = 41
+    ADD_DEPARTMENT_CODE = 42
+    EDIT_DEPARTMENT_NAME = 43
+    ADD_USER_ID = 44
+    ADD_USER_FULL_NAME = 45
     EXPORT_DATA = 14
     WAITING_INPUT = 15
     
@@ -38,6 +44,11 @@ class AdminStates:
     ADD_DEPT_STEP3_DESCRIPTION = 27
     ADD_DEPT_STEP4_HEAD = 28
     ADD_DEPT_CONFIRM = 29
+
+    # Состояния для редактирования отдела
+    EDIT_DEPT_STEP1_SELECT = 35
+    EDIT_DEPT_STEP2_NAME = 36
+    EDIT_DEPT_CONFIRM = 37
     
     # Состояния для удаления
     DELETE_USER_SELECT = 30
@@ -84,6 +95,7 @@ STATES = {
     'ADMIN_REPORTS': AdminStates.VIEW_REPORTS,
     'ADMIN_REMINDER': AdminStates.SEND_REMINDER,
     'ADMIN_USERS': AdminStates.MANAGE_USERS,
+    'ADMIN_DEPARTMENTS': AdminStates.MANAGE_DEPARTMENTS,
     'ADMIN_EXPORT': AdminStates.EXPORT_DATA,
     
     # Пользователь
@@ -147,6 +159,7 @@ def get_admin_main_keyboard():
         [InlineKeyboardButton("📊 Просмотр отчетов", callback_data="admin_view_reports")],
         [InlineKeyboardButton("📢 Отправить напоминание", callback_data="admin_send_reminder")],
         [InlineKeyboardButton("👥 Управление пользователями", callback_data="admin_manage_users")],
+        [InlineKeyboardButton("🗄️ Управление отделами", callback_data="admin_manage_departments")],
         [InlineKeyboardButton("📤 Экспорт данных", callback_data="admin_export_data")],
         [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
         [InlineKeyboardButton("❌ Закрыть", callback_data="admin_close")]

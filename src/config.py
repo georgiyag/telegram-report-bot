@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     timezone: str = os.getenv("TIMEZONE", "Europe/Moscow")
     
     # Admin Settings
-    admin_user_ids: str = ""
+    admin_user_ids: str = os.getenv("ADMIN_USER_IDS", "")
     
     # Report Settings
     report_deadline: str = os.getenv("REPORT_DEADLINE", "Friday 18:00")

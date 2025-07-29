@@ -154,6 +154,14 @@ class ReminderService:
             logger.error(f"Ошибка получения списка администраторов: {e}")
             return []
     
+    async def send_reminder_to_all(self) -> dict:
+        """Отправка напоминания всем активным сотрудникам"""
+        return await self.send_manual_reminder("all")
+    
+    async def send_reminder_to_missing(self) -> dict:
+        """Отправка напоминания только тем, кто не сдал отчет"""
+        return await self.send_manual_reminder("missing")
+    
     async def send_manual_reminder(self, target_type: str, target_value: str = None) -> dict:
         """Отправка ручного напоминания"""
         try:

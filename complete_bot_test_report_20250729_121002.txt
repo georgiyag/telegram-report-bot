@@ -1,0 +1,158 @@
+ПОЛНЫЙ ОТЧЕТ ТЕСТИРОВАНИЯ БОТА
+==================================================
+
+Дата и время: 2025-07-29 12:10:02
+
+[12:10:02] Database Connection: FAIL
+   Детали: Ошибка: 'DatabaseManager' object has no attribute 'create_tables'
+
+[12:10:02] Bot Initialization: PASS
+   Детали: Бот инициализирован
+
+[12:10:02] Menu Handler: FAIL
+   Детали: Ошибка: MenuHandler.__init__() missing 2 required positional arguments: 'report_handler' and 'admin_handler'
+
+[12:10:02] Admin Handler: FAIL
+   Детали: Ошибка: AdminHandler.__init__() missing 5 required positional arguments: 'report_processor', 'db_manager', 'telegram_service', 'user_management_handler', and 'department_management_handler'
+
+[12:10:02] Report Handler: FAIL
+   Детали: Ошибка: ReportHandler.__init__() missing 5 required positional arguments: 'report_processor', 'ollama_service', 'telegram_service', 'task_manager', and 'db_manager'
+
+[12:10:02] User Handler: FAIL
+   Детали: Ошибка: UserHandler.__init__() missing 1 required positional argument: 'db_manager'
+
+[12:10:02] Reminder Service: FAIL
+   Детали: Ошибка: ReminderService.__init__() missing 2 required positional arguments: 'db_manager' and 'telegram_service'
+
+[12:10:02] Report Processor: FAIL
+   Детали: Ошибка: ReportProcessor.__init__() missing 2 required positional arguments: 'ollama_service' and 'telegram_service'
+
+[12:10:02] Telegram Service: FAIL
+   Детали: Ошибка: TelegramService.__init__() missing 1 required positional argument: 'bot'
+
+[12:10:02] Navigation - Breadcrumb: PASS
+   Детали: Breadcrumb работает
+
+[12:10:02] Navigation Functions: FAIL
+   Детали: Ошибка: too many values to unpack (expected 2)
+
+[12:10:02] Callback Pattern - menu_main: PASS
+   Детали: Паттерн menu_main определен
+
+[12:10:02] Callback Pattern - menu_admin: PASS
+   Детали: Паттерн menu_admin определен
+
+[12:10:02] Callback Pattern - menu_report: PASS
+   Детали: Паттерн menu_report определен
+
+[12:10:02] Callback Pattern - menu_help: PASS
+   Детали: Паттерн menu_help определен
+
+[12:10:02] Callback Pattern - admin_users: PASS
+   Детали: Паттерн admin_users определен
+
+[12:10:02] Callback Pattern - admin_departments: PASS
+   Детали: Паттерн admin_departments определен
+
+[12:10:02] Callback Pattern - admin_reports: PASS
+   Детали: Паттерн admin_reports определен
+
+[12:10:02] Callback Pattern - admin_settings: PASS
+   Детали: Паттерн admin_settings определен
+
+[12:10:02] Callback Pattern - user_add: PASS
+   Детали: Паттерн user_add определен
+
+[12:10:02] Callback Pattern - user_list: PASS
+   Детали: Паттерн user_list определен
+
+[12:10:02] Callback Pattern - user_edit: PASS
+   Детали: Паттерн user_edit определен
+
+[12:10:02] Callback Pattern - user_delete: PASS
+   Детали: Паттерн user_delete определен
+
+[12:10:02] Callback Pattern - user_view_1: PASS
+   Детали: Паттерн user_view_1 определен
+
+[12:10:02] Callback Pattern - dept_add: PASS
+   Детали: Паттерн dept_add определен
+
+[12:10:02] Callback Pattern - dept_list: PASS
+   Детали: Паттерн dept_list определен
+
+[12:10:02] Callback Pattern - dept_edit: PASS
+   Детали: Паттерн dept_edit определен
+
+[12:10:02] Callback Pattern - dept_delete: PASS
+   Детали: Паттерн dept_delete определен
+
+[12:10:02] Callback Pattern - dept_view_1: PASS
+   Детали: Паттерн dept_view_1 определен
+
+[12:10:02] Callback Pattern - reminder_settings: PASS
+   Детали: Паттерн reminder_settings определен
+
+[12:10:02] Callback Pattern - reminder_send_all: PASS
+   Детали: Паттерн reminder_send_all определен
+
+[12:10:02] Callback Pattern - reminder_send_missing: PASS
+   Детали: Паттерн reminder_send_missing определен
+
+[12:10:02] Callback Pattern - reminder_schedule: PASS
+   Детали: Паттерн reminder_schedule определен
+
+[12:10:02] Callback Pattern - reminder_settings_auto: PASS
+   Детали: Паттерн reminder_settings_auto определен
+
+[12:10:02] Callback Pattern - report_create: PASS
+   Детали: Паттерн report_create определен
+
+[12:10:02] Callback Pattern - report_view: PASS
+   Детали: Паттерн report_view определен
+
+[12:10:02] Callback Pattern - report_edit: PASS
+   Детали: Паттерн report_edit определен
+
+[12:10:02] Callback Pattern - report_delete: PASS
+   Детали: Паттерн report_delete определен
+
+[12:10:02] Callback Pattern - report_export: PASS
+   Детали: Паттерн report_export определен
+
+[12:10:02] Callback Pattern - report_send: PASS
+   Детали: Паттерн report_send определен
+
+[12:10:02] Callback Pattern - reports_weekly: PASS
+   Детали: Паттерн reports_weekly определен
+
+[12:10:02] Callback Pattern - reports_monthly: PASS
+   Детали: Паттерн reports_monthly определен
+
+[12:10:02] Callback Pattern - export_users: PASS
+   Детали: Паттерн export_users определен
+
+[12:10:02] Callback Pattern - export_reports: PASS
+   Детали: Паттерн export_reports определен
+
+[12:10:02] Callback Pattern - export_stats: PASS
+   Детали: Паттерн export_stats определен
+
+[12:10:02] Callback Pattern - back_main: PASS
+   Детали: Паттерн back_main определен
+
+[12:10:02] Callback Pattern - back_admin: PASS
+   Детали: Паттерн back_admin определен
+
+[12:10:02] Callback Pattern - back_users: PASS
+   Детали: Паттерн back_users определен
+
+[12:10:02] Callback Pattern - back_reports: PASS
+   Детали: Паттерн back_reports определен
+
+
+ИТОГО:
+Всего тестов: 49
+Прошли: 40
+Провалились: 9
+Успешность: 81.6%

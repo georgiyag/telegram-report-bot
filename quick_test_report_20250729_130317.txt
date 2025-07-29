@@ -1,0 +1,23 @@
+
+🚀 БЫСТРЫЙ ТЕСТ БОТА
+========================================
+
+📊 РЕЗУЛЬТАТЫ:
+• Всего тестов: 10
+• Успешных: 4
+• Неудачных: 6
+• Процент успеха: 40.0%
+
+📋 ДЕТАЛИ:
+ 1. ✅ Database Connection - База данных инициализирована
+ 2. ❌ Services Initialization - TaskManager.__init__() takes 1 positional argument but 2 were given
+ 3. ❌ Handlers Initialization - MenuHandler.__init__() missing 1 required positional argument: 'admin_handler'
+ 4. ❌ Database Operations - 'DatabaseManager' object has no attribute 'create_department'
+ 5. ✅ Get Reminder Settings - Настройки получены: 6 записей
+ 6. ✅ Update Reminder Settings - Настройки обновлены
+ 7. ❌ Report Processing - DatabaseManager.get_reports_by_week() missing 1 required positional argument: 'week_end'
+ 8. ❌ Admin Functions - 'DatabaseManager' object has no attribute 'get_all_departments'
+ 9. ❌ Data Export - 'DatabaseManager' object has no attribute 'get_all_reports'
+10. ✅ Cleanup - Тестовые данные очищены
+
+⚠️ ОБНАРУЖЕНЫ ПРОБЛЕМЫ В 6 ТЕСТАХ

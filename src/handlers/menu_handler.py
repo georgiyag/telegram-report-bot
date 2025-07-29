@@ -9,6 +9,7 @@ from loguru import logger
 
 from config import settings, MESSAGES
 from .states import MainMenuStates, get_main_menu_keyboard, get_back_to_main_keyboard, get_persistent_menu_keyboard
+from utils.navigation import get_breadcrumb_path, update_context_path, go_back_path
 
 class MenuHandler:
     """Обработчик главного меню с кнопками"""
@@ -22,16 +23,21 @@ class MenuHandler:
         user = update.effective_user
         is_admin = user.id in settings.get_admin_ids()
         
+        # Сбрасываем путь навигации до главного меню
+        context.user_data['path'] = ['main']
+        breadcrumb = get_breadcrumb_path(context.user_data['path'])
+        
         # Определяем, откуда пришел запрос
         if update.callback_query:
             query = update.callback_query
             await query.answer()
             
             welcome_text = (
-                f"🏠 <b>Главное меню</b>\n\n"
-                f"🏢 <b>Система отправки резюме за неделю АО ЭМЗ ФИРМА СЭЛМА</b>\n\n"
-                f"Добро пожаловать, {user.first_name}!\n\n"
-                f"Выберите действие:"
+                f"📍 {breadcrumb}\n\n"
+                f"🏢 <b>Система отправки резюме за неделю</b>\n"
+                f"<i>АО ЭМЗ ФИРМА СЭЛМА</i>\n\n"
+                f"👋 Добро пожаловать, <b>{user.first_name}</b>!\n\n"
+                f"🎯 Выберите действие:"
             )
             
             await query.edit_message_text(
@@ -71,10 +77,19 @@ class MenuHandler:
         
         logger.info(f"Пользователь {user.id} выбрал: {callback_data}")
         
+        # Обработка навигации назад
+        if callback_data.startswith('back_'):
+            path = go_back_path(context)
+            if not path or path[-1] == 'main':
+                return await self.show_main_menu(update, context)
+        
         if callback_data == "menu_status":
             # Показать статус отчета
+            path = update_context_path(context, 'status')
+            breadcrumb = get_breadcrumb_path(path)
+            
             await query.edit_message_text(
-                text="📊 <b>Статус отчета</b>\n\nПроверяем ваш статус...",
+                text=f"📍 {breadcrumb}\n\n📊 <b>Статус отчета</b>\n\n⏳ Проверяем ваш статус...",
                 parse_mode='HTML'
             )
             # Вызываем метод статуса и добавляем кнопку возврата
@@ -83,16 +98,43 @@ class MenuHandler:
             
         elif callback_data == "menu_help":
             # Показать справку
+            path = update_context_path(context, 'help')
+            breadcrumb = get_breadcrumb_path(path)
+            
+            help_text = (
+                f"📍 {breadcrumb}\n\n"
+                f"❓ <b>Справка по системе</b>\n\n"
+                f"📝 <b>Как создать отчет:</b>\n"
+                f"• Нажмите кнопку 'Создать отчет'\n"
+                f"• Опишите свою работу за неделю\n"
+                f"• Отправьте отчет\n\n"
+                f"📊 <b>Проверка статуса:</b>\n"
+                f"• Используйте кнопку 'Статус отчета'\n"
+                f"• Просматривайте историю отчетов\n\n"
+                f"🔔 <b>Напоминания:</b>\n"
+                f"• Отчеты принимаются до понедельника\n"
+                f"• Система автоматически напоминает о сроках\n\n"
+                f"❓ <b>Нужна помощь?</b> Обратитесь к администратору."
+            )
+            
             await query.edit_message_text(
-                text=MESSAGES['menu_help_extended'],
+                text=help_text,
                 reply_markup=get_back_to_main_keyboard(),
                 parse_mode='HTML'
             )
             return MainMenuStates.MAIN_MENU
             
+        elif callback_data == "menu_report":
+            # Создание отчета - передаем управление report_handler
+            path = update_context_path(context, 'report')
+            # Вызываем метод создания отчета
+            return await self.report_handler.report_command(update, context)
+            
         elif callback_data == "menu_admin":
-            # Эта кнопка обрабатывается отдельным handler'ом в main.py
-            pass
+            # Обновляем путь для админ-панели
+            update_context_path(context, 'admin')
+            # Возвращаем состояние для обработки админ-панели
+            return MainMenuStates.MAIN_MENU
             
         elif callback_data == "back_to_main":
             # Возврат в главное меню

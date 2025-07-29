@@ -45,6 +45,7 @@ from handlers import (
     UserStates,
     MainMenuStates
 )
+from handlers.admin import UserManagementHandler, DepartmentManagementHandler
 from services import (
     OllamaService,
     TelegramService,
@@ -111,10 +112,15 @@ class TelegramReportBot:
                 db_manager=db_manager
             )
             
+            user_management_handler = UserManagementHandler(db_manager=db_manager)
+            department_management_handler = DepartmentManagementHandler(db_manager=db_manager)
+
             self.admin_handler = AdminHandler(
                 report_processor=self.report_processor,
                 db_manager=db_manager,
-                telegram_service=self.telegram_service
+                telegram_service=self.telegram_service,
+                user_management_handler=user_management_handler,
+                department_management_handler=department_management_handler
             )
             
             self.user_handler = UserHandler(db_manager)
@@ -135,7 +141,7 @@ class TelegramReportBot:
             return True
             
         except Exception as e:
-            logger.error(f"Ошибка при инициализации сервисов: {e}")
+            logger.opt(exception=True).error(f"Подробная ошибка при инициализации сервисов: {e}")
             return False
     
     def setup_handlers(self):
@@ -146,13 +152,15 @@ class TelegramReportBot:
         menu_conv_handler = ConversationHandler(
             entry_points=[
                 CommandHandler('start', self.user_handler.start),
-                CallbackQueryHandler(self.menu_handler.show_main_menu, pattern='^back_to_main$')
+                CallbackQueryHandler(self.menu_handler.show_main_menu, pattern='^back_to_main$'),
+                CallbackQueryHandler(self.menu_handler.show_main_menu, pattern='^back_main$')
             ],
             states={
                 MainMenuStates.MAIN_MENU: [
-                    CallbackQueryHandler(self._handle_menu_admin, pattern='^menu_admin$'),
-                    CallbackQueryHandler(self.menu_handler.handle_menu_callback, pattern='^menu_(?!report$|admin$)'),
-                    CallbackQueryHandler(self.menu_handler.handle_menu_callback, pattern='^back_to_main$')
+                    CallbackQueryHandler(self.menu_handler.handle_menu_callback, pattern='^menu_status$'),
+                    CallbackQueryHandler(self.menu_handler.handle_menu_callback, pattern='^menu_help$'),
+                    CallbackQueryHandler(self.menu_handler.handle_menu_callback, pattern='^menu_admin$'),
+                    CallbackQueryHandler(self.menu_handler.handle_menu_callback, pattern='^back_')
                 ]
             },
             fallbacks=[
@@ -202,125 +210,62 @@ class TelegramReportBot:
         admin_conv_handler = ConversationHandler(
             entry_points=[
                 CommandHandler('admin', self.admin_handler.admin_command),
-                CallbackQueryHandler(self.admin_handler.admin_command, pattern='^menu_admin$'),
-                CallbackQueryHandler(self.admin_handler.handle_admin_callback, pattern='^admin_')
+                CallbackQueryHandler(self.admin_handler.admin_command, pattern='^menu_admin$')
             ],
             states={
                 AdminStates.MAIN_MENU: [
-                    CallbackQueryHandler(self.admin_handler.handle_admin_callback, pattern='^admin_')
-                ],
-                AdminStates.VIEW_REPORTS: [
-                    CallbackQueryHandler(self.admin_handler.handle_reports_callback, pattern='^reports_'),
-                    CallbackQueryHandler(self.admin_handler.handle_admin_callback, pattern='^admin_')
+                    CallbackQueryHandler(self.admin_handler.handle_admin_callback, pattern='^admin_'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_action, pattern='^reminder_'),
+                    CallbackQueryHandler(self.admin_handler.handle_reports_action, pattern='^reports_'),
+                    CallbackQueryHandler(self.admin_handler.handle_export_action, pattern='^export_'),
                 ],
                 AdminStates.MANAGE_USERS: [
-                    CallbackQueryHandler(self.admin_handler.handle_users_callback, pattern='^(users_|departments_)'),
-                    CallbackQueryHandler(self.admin_handler.handle_admin_callback, pattern='^admin_')
+                    CallbackQueryHandler(self.admin_handler.user_management_handler.handle_callback, pattern='^admin_'),
                 ],
-                AdminStates.SEND_REMINDER: [
-                    CallbackQueryHandler(self.admin_handler.handle_reminder_callback, pattern='^reminder_'),
-                    CallbackQueryHandler(self.admin_handler.handle_admin_callback, pattern='^admin_')
-                ],
-                AdminStates.EXPORT_DATA: [
-                    CallbackQueryHandler(self.admin_handler.handle_export_callback, pattern='^export_'),
-                    CallbackQueryHandler(self.admin_handler.handle_admin_callback, pattern='^admin_')
-                ],
-                AdminStates.WAITING_INPUT: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler.handle_user_input),
-                    CallbackQueryHandler(self.admin_handler.handle_admin_callback, pattern='^admin_')
-                ],
-                # Состояния мастера добавления пользователя
-                AdminStates.ADD_USER_STEP1_ID: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler._handle_add_user_step1),
-                    CallbackQueryHandler(self.admin_handler._cancel_admin, pattern='^cancel$')
-                ],
-                AdminStates.ADD_USER_STEP2_USERNAME: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler._handle_add_user_step2),
-                    CallbackQueryHandler(self.admin_handler._handle_add_user_step1, pattern='^wizard_back$'),
-                    CallbackQueryHandler(self.admin_handler._cancel_admin, pattern='^cancel$')
-                ],
-                AdminStates.ADD_USER_STEP3_FULLNAME: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler._handle_add_user_step3),
-                    CallbackQueryHandler(self.admin_handler._handle_add_user_step3, pattern='^wizard_next$'),
-                    CallbackQueryHandler(self.admin_handler._handle_add_user_step2, pattern='^wizard_back$'),
-                    CallbackQueryHandler(self.admin_handler._cancel_admin, pattern='^cancel$')
-                ],
-                AdminStates.ADD_USER_STEP4_DEPARTMENT: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler._handle_add_user_step4),
-                    CallbackQueryHandler(self.admin_handler._handle_add_user_step3, pattern='^wizard_back$'),
-                    CallbackQueryHandler(self.admin_handler._cancel_admin, pattern='^cancel$')
-                ],
-                AdminStates.ADD_USER_STEP5_POSITION: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler._handle_add_user_step5),
-                    CallbackQueryHandler(self.admin_handler._handle_add_user_step4, pattern='^wizard_back$'),
-                    CallbackQueryHandler(self.admin_handler._cancel_admin, pattern='^cancel$')
-                ],
-                AdminStates.ADD_USER_STEP6_EMPLOYEE_ID: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler._handle_add_user_step6),
-                    CallbackQueryHandler(self.admin_handler._handle_add_user_step5, pattern='^wizard_back$'),
-                    CallbackQueryHandler(self.admin_handler._cancel_admin, pattern='^cancel$')
-                ],
-                AdminStates.ADD_USER_STEP7_EMAIL: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler._handle_add_user_step7),
-                    CallbackQueryHandler(self.admin_handler._handle_add_user_step7, pattern='^wizard_next$'),
-                    CallbackQueryHandler(self.admin_handler._handle_add_user_step6, pattern='^wizard_back$'),
-                    CallbackQueryHandler(self.admin_handler._cancel_admin, pattern='^cancel$')
-                ],
-                AdminStates.ADD_USER_STEP8_PHONE: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler._handle_add_user_step8),
-                    CallbackQueryHandler(self.admin_handler._handle_add_user_step8, pattern='^wizard_next$'),
-                    CallbackQueryHandler(self.admin_handler._handle_add_user_step7, pattern='^wizard_back$'),
-                    CallbackQueryHandler(self.admin_handler._cancel_admin, pattern='^cancel$')
-                ],
-                AdminStates.ADD_USER_CONFIRM: [
-                    CallbackQueryHandler(self.admin_handler._confirm_add_user, pattern='^user_confirm|^user_cancel$')
-                ],
-                # Состояния мастера добавления отделов
-                AdminStates.ADD_DEPT_STEP1_CODE: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler._handle_add_department_step1),
-                    CallbackQueryHandler(self.admin_handler._cancel_admin, pattern='^cancel$')
+                AdminStates.MANAGE_DEPARTMENTS: [
+                    CallbackQueryHandler(self.admin_handler.department_management_handler.handle_callback, pattern='^admin_'),
                 ],
                 AdminStates.ADD_DEPT_STEP2_NAME: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler._handle_add_department_step2),
-                    CallbackQueryHandler(self.admin_handler._handle_add_department_step1, pattern='^wizard_back$'),
-                    CallbackQueryHandler(self.admin_handler._cancel_admin, pattern='^cancel$')
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler.department_management_handler.add_department_name),
                 ],
-                AdminStates.ADD_DEPT_STEP3_DESCRIPTION: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler._handle_add_department_step3),
-                    CallbackQueryHandler(self.admin_handler._handle_add_department_step3, pattern='^wizard_next$'),
-                    CallbackQueryHandler(self.admin_handler._handle_add_department_step2, pattern='^wizard_back$'),
-                    CallbackQueryHandler(self.admin_handler._cancel_admin, pattern='^cancel$')
+                AdminStates.EDIT_DEPT_STEP2_NAME: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler.department_management_handler.edit_department_name),
                 ],
-                AdminStates.ADD_DEPT_STEP4_HEAD: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler._handle_add_department_step4),
-                    CallbackQueryHandler(self.admin_handler._handle_add_department_step4, pattern='^wizard_next$'),
-                    CallbackQueryHandler(self.admin_handler._handle_add_department_step3, pattern='^wizard_back$'),
-                    CallbackQueryHandler(self.admin_handler._cancel_admin, pattern='^cancel$')
+                AdminStates.ADD_DEPT_STEP2_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler.department_management_handler.add_department_name)],
+                AdminStates.EDIT_DEPT_STEP2_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler.department_management_handler.edit_department_name)],
+                AdminStates.ADD_USER_STEP1_ID: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler.user_management_handler.add_user_id),
+                    CallbackQueryHandler(self.admin_handler.user_management_handler.cancel_user_action, pattern='^admin_cancel_user_action$')
                 ],
-                AdminStates.ADD_DEPT_CONFIRM: [
-                    CallbackQueryHandler(self.admin_handler._confirm_add_department, pattern='^dept_confirm|^dept_cancel$')
+                AdminStates.ADD_USER_STEP3_FULLNAME: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.admin_handler.user_management_handler.add_user_full_name),
+                    CallbackQueryHandler(self.admin_handler.user_management_handler.cancel_user_action, pattern='^admin_cancel_user_action$')
                 ],
-                # Состояния мастера удаления
-                AdminStates.DELETE_USER_SELECT: [
-                    CallbackQueryHandler(self.admin_handler._handle_delete_user_select, pattern='^delete_user_|^cancel$')
+                AdminStates.ADD_USER_STEP4_DEPARTMENT: [
+                    CallbackQueryHandler(self.admin_handler.user_management_handler.add_user_department, pattern='^admin_set_user_dep_'),
+                    CallbackQueryHandler(self.admin_handler.user_management_handler.cancel_user_action, pattern='^admin_cancel_user_action$')
                 ],
-                AdminStates.DELETE_DEPT_SELECT: [
-                    CallbackQueryHandler(self.admin_handler._handle_delete_department_select, pattern='^delete_dept_|^cancel$')
+                # Состояния для отправки напоминаний
+                AdminStates.SEND_REMINDER: [
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_callback, pattern='^reminder_'),
+                    CallbackQueryHandler(self.admin_handler.handle_admin_callback, pattern='^admin_back$'),
+                    CallbackQueryHandler(self.menu_handler.show_main_menu, pattern='^back_to_main$')
                 ],
-                AdminStates.DELETE_USER_CONFIRM: [
-                    CallbackQueryHandler(self.admin_handler._confirm_delete_user, pattern='^delete_confirm|^delete_cancel$')
+                # Состояния для просмотра отчетов
+                AdminStates.VIEW_REPORTS: [
+                    CallbackQueryHandler(self.admin_handler.handle_reports_callback, pattern='^reports_'),
+                    CallbackQueryHandler(self.admin_handler.handle_admin_callback, pattern='^admin_'),
+                    CallbackQueryHandler(self.menu_handler.show_main_menu, pattern='^back_to_main$')
                 ],
-                AdminStates.DELETE_DEPT_CONFIRM: [
-                    CallbackQueryHandler(self.admin_handler._confirm_delete_department, pattern='^delete_confirm|^delete_cancel$')
+                # Состояния для экспорта данных
+                AdminStates.EXPORT_DATA: [
+                    CallbackQueryHandler(self.admin_handler.handle_export_callback, pattern='^export_'),
+                    CallbackQueryHandler(self.admin_handler.handle_admin_callback, pattern='^admin_back$'),
+                    CallbackQueryHandler(self.menu_handler.show_main_menu, pattern='^back_to_main$')
                 ],
-                AdminStates.DELETE_CONFIRM: [
-                    CallbackQueryHandler(self.admin_handler._confirm_delete_user, pattern='^delete_confirm|^delete_cancel$'),
-                    CallbackQueryHandler(self.admin_handler._confirm_delete_department, pattern='^delete_confirm|^delete_cancel$')
-                ]
             },
             fallbacks=[
-                CommandHandler('cancel', self.admin_handler._cancel_admin),
-                CallbackQueryHandler(self.admin_handler._cancel_admin, pattern='^admin_cancel$')
+                CommandHandler('cancel', self.admin_handler.cancel_admin_conversation)
             ],
             name="admin_conversation",
             persistent=False,
@@ -328,9 +273,9 @@ class TelegramReportBot:
         )
         
         # Добавляем обработчики в приложение (порядок важен!)
-        self.application.add_handler(menu_conv_handler)  # Главное меню - первый приоритет
-        self.application.add_handler(report_conv_handler)
+        self.application.add_handler(report_conv_handler)  # Отчеты - первый приоритет для menu_report
         self.application.add_handler(admin_conv_handler)
+        self.application.add_handler(menu_conv_handler)  # Главное меню - последний
         
         # Отдельный обработчик menu_admin уже добавлен в menu_conv_handler
         
@@ -359,23 +304,7 @@ class TelegramReportBot:
         
         logger.success("Обработчики настроены")
     
-    async def _handle_menu_admin(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Обработка нажатия кнопки 'Панель администратора' из меню"""
-        user = update.effective_user
-        is_admin = user.id in settings.get_admin_ids()
-        
-        if not is_admin:
-            from handlers.states import get_back_to_main_keyboard
-            await update.callback_query.edit_message_text(
-                text="❌ У вас нет прав для выполнения этой команды.",
-                reply_markup=get_back_to_main_keyboard()
-            )
-            return ConversationHandler.END
-        
-        # Переходим к админ-панели через команду
-        await self.admin_handler.admin_command(update, context)
-        # Завершаем menu_conversation, чтобы admin_conversation мог начаться
-        return ConversationHandler.END
+
     
     async def handle_unknown_command(self, update: Update, context) -> None:
         """Обработка неизвестных команд"""

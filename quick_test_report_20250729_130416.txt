@@ -1,0 +1,24 @@
+
+🚀 БЫСТРЫЙ ТЕСТ БОТА
+========================================
+
+📊 РЕЗУЛЬТАТЫ:
+• Всего тестов: 11
+• Успешных: 6
+• Неудачных: 5
+• Процент успеха: 54.5%
+
+📋 ДЕТАЛИ:
+ 1. ✅ Database Connection - База данных инициализирована
+ 2. ✅ Services Initialization - Все сервисы инициализированы
+ 3. ❌ Handlers Initialization - AdminHandler.__init__() missing 4 required positional arguments: 'db_manager', 'telegram_service', 'user_management_handler', and 'department_management_handler'
+ 4. ❌ Database Operations - DatabaseManager.add_department() takes 2 positional arguments but 3 were given
+ 5. ✅ Get Reminder Settings - Настройки получены: 6 записей
+ 6. ✅ Update Reminder Settings - Настройки обновлены
+ 7. ❌ Report Processing - name 'timedelta' is not defined
+ 8. ✅ Get Departments - Найдено отделов: 11
+ 9. ❌ Admin Functions - 'DatabaseManager' object has no attribute 'get_users'
+10. ❌ Data Export - 'DatabaseManager' object has no attribute 'get_reports'
+11. ✅ Cleanup - Тестовые данные очищены
+
+⚠️ ОБНАРУЖЕНЫ ПРОБЛЕМЫ В 5 ТЕСТАХ

@@ -99,6 +99,26 @@ class DatabaseManager:
                     )
                 """)
                 
+                # Создание таблицы настроек напоминаний
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS reminder_settings (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        auto_enabled BOOLEAN DEFAULT FALSE,
+                        reminder_time TEXT DEFAULT '09:00',
+                        reminder_days TEXT DEFAULT 'Пн,Ср,Пт',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+                
+                # Добавляем настройки по умолчанию если таблица пустая
+                cursor.execute("SELECT COUNT(*) FROM reminder_settings")
+                if cursor.fetchone()[0] == 0:
+                    cursor.execute("""
+                        INSERT INTO reminder_settings (auto_enabled, reminder_time, reminder_days)
+                        VALUES (FALSE, '09:00', 'Пн,Ср,Пт')
+                    """)
+                
                 # Создание индексов для оптимизации
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_reports_week ON reports (week_start, week_end)")
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_reports_user ON reports (user_id)")
@@ -452,6 +472,21 @@ class DatabaseManager:
             logger.error(f"Ошибка при получении списка администраторов: {e}")
             return []
     
+    async def is_admin(self, user_id: int) -> bool:
+        """Проверка является ли пользователь администратором"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT is_admin FROM employees WHERE user_id = ? AND is_active = TRUE",
+                    (user_id,)
+                )
+                result = cursor.fetchone()
+                return bool(result and result[0])
+        except Exception as e:
+            logger.error(f"Ошибка при проверке прав администратора: {e}")
+            return False
+    
     # CRUD операции для отчетов
     async def save_report(self, report: WeeklyReport) -> bool:
         """Сохранение отчета"""
@@ -672,6 +707,112 @@ class DatabaseManager:
         except Exception as e:
             logger.error(f"Ошибка при исправлении схемы базы данных: {e}")
             return False
+    
+    # Методы для работы с настройками напоминаний
+    async def get_reminder_settings(self) -> Dict[str, Any]:
+        """Получение настроек напоминаний"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute("SELECT * FROM reminder_settings ORDER BY id DESC LIMIT 1")
+                row = cursor.fetchone()
+                
+                if row:
+                    return dict(row)
+                else:
+                    # Возвращаем настройки по умолчанию
+                    return {
+                        'auto_enabled': False,
+                        'reminder_time': '09:00',
+                        'reminder_days': 'Пн,Ср,Пт'
+                    }
+        except Exception as e:
+            logger.error(f"Ошибка получения настроек напоминаний: {e}")
+            return {
+                'auto_enabled': False,
+                'reminder_time': '09:00',
+                'reminder_days': 'Пн,Ср,Пт'
+            }
+    
+    async def update_reminder_settings(self, settings: Dict[str, Any]) -> bool:
+        """Обновление настроек напоминаний"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # Проверяем есть ли записи
+                cursor.execute("SELECT COUNT(*) FROM reminder_settings")
+                count = cursor.fetchone()[0]
+                
+                if count == 0:
+                    # Создаем новую запись
+                    cursor.execute("""
+                        INSERT INTO reminder_settings (auto_enabled, reminder_time, reminder_days, updated_at)
+                        VALUES (?, ?, ?, ?)
+                    """, (
+                        settings.get('auto_enabled', False),
+                        settings.get('reminder_time', '09:00'),
+                        settings.get('reminder_days', 'Пн,Ср,Пт'),
+                        datetime.now()
+                    ))
+                else:
+                    # Обновляем существующую запись
+                    cursor.execute("""
+                        UPDATE reminder_settings 
+                        SET auto_enabled = ?, reminder_time = ?, reminder_days = ?, updated_at = ?
+                        WHERE id = (SELECT MAX(id) FROM reminder_settings)
+                    """, (
+                        settings.get('auto_enabled', False),
+                        settings.get('reminder_time', '09:00'),
+                        settings.get('reminder_days', 'Пн,Ср,Пт'),
+                        datetime.now()
+                    ))
+                
+                conn.commit()
+                logger.info("Настройки напоминаний обновлены")
+                return True
+        except Exception as e:
+            logger.error(f"Ошибка обновления настроек напоминаний: {e}")
+            return False
+    
+    async def get_all_users(self) -> List[Employee]:
+        """Получение всех пользователей (сотрудников)"""
+        return await self.get_employees()
+    
+    async def get_reports(self, limit: int = None) -> List[WeeklyReport]:
+        """Получение всех отчетов"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                
+                if limit:
+                    cursor.execute("""
+                        SELECT * FROM reports 
+                        ORDER BY submitted_at DESC
+                        LIMIT ?
+                    """, (limit,))
+                else:
+                    cursor.execute("""
+                        SELECT * FROM reports 
+                        ORDER BY submitted_at DESC
+                    """)
+                
+                rows = cursor.fetchall()
+                
+                reports = []
+                for row in rows:
+                    report_data = dict(row)
+                    # Преобразуем даты
+                    report_data['week_start'] = datetime.fromisoformat(f"{report_data['week_start']}T00:00:00")
+                    report_data['week_end'] = datetime.fromisoformat(f"{report_data['week_end']}T23:59:59")
+                    reports.append(WeeklyReport(**report_data))
+                
+                return reports
+        except Exception as e:
+            logger.error(f"Ошибка получения отчетов: {e}")
+            return []
     
     async def close(self):
         """Закрытие соединения с базой данных"""

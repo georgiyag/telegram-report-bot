@@ -1,0 +1,158 @@
+ПОЛНЫЙ ОТЧЕТ ТЕСТИРОВАНИЯ БОТА
+==================================================
+
+Дата и время: 2025-07-29 12:15:27
+
+[12:15:23] Database Connection: PASS
+   Детали: База данных подключена
+
+[12:15:23] Bot Initialization: PASS
+   Детали: Бот инициализирован
+
+[12:15:23] Services Initialization: PASS
+   Детали: Все сервисы инициализированы
+
+[12:15:23] Handlers Initialization: PASS
+   Детали: Все обработчики инициализированы
+
+[12:15:23] Menu - /start Command: PASS
+   Детали: Команда /start работает
+
+[12:15:23] Menu - Main Menu Display: PASS
+   Детали: Главное меню отображается
+
+[12:15:23] Menu Callback - menu_admin: PASS
+   Детали: Callback menu_admin обработан
+
+[12:15:27] Menu Callback - menu_report: PASS
+   Детали: Callback menu_report обработан
+
+[12:15:27] Menu Callback - menu_help: PASS
+   Детали: Callback menu_help обработан
+
+[12:15:27] Menu Callback - menu_main: PASS
+   Детали: Callback menu_main обработан
+
+[12:15:27] Admin - Panel Display: PASS
+   Детали: Админ-панель отображается
+
+[12:15:27] Admin Function - admin_users: PASS
+   Детали: Функция admin_users работает
+
+[12:15:27] Admin Function - admin_departments: PASS
+   Детали: Функция admin_departments работает
+
+[12:15:27] Admin Function - admin_reports: PASS
+   Детали: Функция admin_reports работает
+
+[12:15:27] Admin Function - admin_settings: PASS
+   Детали: Функция admin_settings работает
+
+[12:15:27] Admin Function - reminder_settings: PASS
+   Детали: Функция reminder_settings работает
+
+[12:15:27] Admin Function - reminder_send_all: PASS
+   Детали: Функция reminder_send_all работает
+
+[12:15:27] Admin Function - reminder_send_missing: PASS
+   Детали: Функция reminder_send_missing работает
+
+[12:15:27] Report - Creation Start: PASS
+   Детали: Создание отчета работает
+
+[12:15:27] Reminder Functions: FAIL
+   Детали: Ошибка: <services.reminder_service.ReminderService object at 0x000001275D1D3620> does not have the attribute 'send_reminder_to_all'
+
+[12:15:27] Navigation - Breadcrumb: PASS
+   Детали: Breadcrumb работает
+
+[12:15:27] Navigation Functions: FAIL
+   Детали: Ошибка: too many values to unpack (expected 2)
+
+[12:15:27] Callback Pattern - menu_main: PASS
+   Детали: Паттерн menu_main определен
+
+[12:15:27] Callback Pattern - menu_admin: PASS
+   Детали: Паттерн menu_admin определен
+
+[12:15:27] Callback Pattern - menu_report: PASS
+   Детали: Паттерн menu_report определен
+
+[12:15:27] Callback Pattern - menu_help: PASS
+   Детали: Паттерн menu_help определен
+
+[12:15:27] Callback Pattern - admin_users: PASS
+   Детали: Паттерн admin_users определен
+
+[12:15:27] Callback Pattern - admin_departments: PASS
+   Детали: Паттерн admin_departments определен
+
+[12:15:27] Callback Pattern - admin_reports: PASS
+   Детали: Паттерн admin_reports определен
+
+[12:15:27] Callback Pattern - admin_settings: PASS
+   Детали: Паттерн admin_settings определен
+
+[12:15:27] Callback Pattern - user_add: PASS
+   Детали: Паттерн user_add определен
+
+[12:15:27] Callback Pattern - user_list: PASS
+   Детали: Паттерн user_list определен
+
+[12:15:27] Callback Pattern - user_edit: PASS
+   Детали: Паттерн user_edit определен
+
+[12:15:27] Callback Pattern - user_delete: PASS
+   Детали: Паттерн user_delete определен
+
+[12:15:27] Callback Pattern - dept_add: PASS
+   Детали: Паттерн dept_add определен
+
+[12:15:27] Callback Pattern - dept_list: PASS
+   Детали: Паттерн dept_list определен
+
+[12:15:27] Callback Pattern - dept_edit: PASS
+   Детали: Паттерн dept_edit определен
+
+[12:15:27] Callback Pattern - dept_delete: PASS
+   Детали: Паттерн dept_delete определен
+
+[12:15:27] Callback Pattern - reminder_settings: PASS
+   Детали: Паттерн reminder_settings определен
+
+[12:15:27] Callback Pattern - reminder_send_all: PASS
+   Детали: Паттерн reminder_send_all определен
+
+[12:15:27] Callback Pattern - reminder_send_missing: PASS
+   Детали: Паттерн reminder_send_missing определен
+
+[12:15:27] Callback Pattern - report_create: PASS
+   Детали: Паттерн report_create определен
+
+[12:15:27] Callback Pattern - report_view: PASS
+   Детали: Паттерн report_view определен
+
+[12:15:27] Callback Pattern - report_edit: PASS
+   Детали: Паттерн report_edit определен
+
+[12:15:27] Callback Pattern - report_delete: PASS
+   Детали: Паттерн report_delete определен
+
+[12:15:27] Callback Pattern - back_main: PASS
+   Детали: Паттерн back_main определен
+
+[12:15:27] Callback Pattern - back_admin: PASS
+   Детали: Паттерн back_admin определен
+
+[12:15:27] Callback Pattern - back_users: PASS
+   Детали: Паттерн back_users определен
+
+[12:15:27] Callback Pattern - back_reports: PASS
+   Детали: Паттерн back_reports определен
+
+
+ИТОГО:
+Всего тестов: 49
+Прошли: 47
+Провалились: 2
+Успешность: 95.9%

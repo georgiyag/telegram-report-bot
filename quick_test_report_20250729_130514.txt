@@ -1,0 +1,25 @@
+
+🚀 БЫСТРЫЙ ТЕСТ БОТА
+========================================
+
+📊 РЕЗУЛЬТАТЫ:
+• Всего тестов: 12
+• Успешных: 9
+• Неудачных: 3
+• Процент успеха: 75.0%
+
+📋 ДЕТАЛИ:
+ 1. ✅ Database Connection - База данных инициализирована
+ 2. ✅ Services Initialization - Все сервисы инициализированы
+ 3. ❌ Handlers Initialization - ReportHandler.__init__() missing 3 required positional arguments: 'telegram_service', 'task_manager', and 'db_manager'
+ 4. ❌ Database Operations - 'DatabaseManager' object has no attribute 'add_user'
+ 5. ✅ Get Reminder Settings - Настройки получены: 6 записей
+ 6. ✅ Update Reminder Settings - Настройки обновлены
+ 7. ✅ Get Reports - Найдено отчетов: 0
+ 8. ✅ Get User Reports - Отчетов пользователя: 0
+ 9. ✅ Get Departments - Найдено отделов: 11
+10. ❌ Admin Functions - 'DatabaseManager' object has no attribute 'get_all_users'
+11. ✅ Export Reports - Нет данных для экспорта
+12. ✅ Cleanup - Тестовые данные очищены
+
+⚠️ ОБНАРУЖЕНЫ ПРОБЛЕМЫ В 3 ТЕСТАХ
