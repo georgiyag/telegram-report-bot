@@ -159,12 +159,14 @@ class TelegramReportBot:
                 MainMenuStates.MAIN_MENU: [
                     CallbackQueryHandler(self.menu_handler.handle_menu_callback, pattern='^menu_status$'),
                     CallbackQueryHandler(self.menu_handler.handle_menu_callback, pattern='^menu_help$'),
+                    CallbackQueryHandler(self.menu_handler.handle_menu_callback, pattern='^menu_report$'),
                     CallbackQueryHandler(self.menu_handler.handle_menu_callback, pattern='^menu_admin$'),
                     CallbackQueryHandler(self.menu_handler.handle_menu_callback, pattern='^back_')
                 ]
             },
             fallbacks=[
-                CommandHandler('cancel', self.menu_handler.cancel_menu)
+                CommandHandler('cancel', self.menu_handler.cancel_menu),
+                CallbackQueryHandler(self.menu_handler.cancel_menu, pattern='^cancel$')
             ],
             name="menu_conversation",
             persistent=False,
@@ -175,26 +177,37 @@ class TelegramReportBot:
         report_conv_handler = ConversationHandler(
             entry_points=[
                 CommandHandler('report', self.report_handler.report_command),
-                CallbackQueryHandler(self.report_handler.report_command, pattern='^menu_report$')
+                CallbackQueryHandler(self.report_handler.report_command, pattern='^menu_report$'),
+                CallbackQueryHandler(self.report_handler.handle_callback, pattern='^start_report$')
             ],
             states={
                 ReportStates.WAITING_DEPARTMENT: [
-                    CallbackQueryHandler(self.report_handler.receive_department, pattern='^dept_')
+                    CallbackQueryHandler(self.report_handler.receive_department, pattern='^dept_'),
+                    CallbackQueryHandler(self.report_handler.handle_callback, pattern='^start_report$'),
+                    CallbackQueryHandler(self.report_handler.handle_callback, pattern='^cancel$'),
+                    CallbackQueryHandler(self.report_handler.handle_callback, pattern='^confirm_report$'),
+                    CallbackQueryHandler(self.report_handler.handle_callback, pattern='^edit_report$')
                 ],
                 ReportStates.WAITING_TASKS: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.report_handler.receive_tasks)
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.report_handler.receive_tasks),
+                    CallbackQueryHandler(self.report_handler.handle_callback, pattern='^cancel$')
                 ],
                 ReportStates.WAITING_ACHIEVEMENTS: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.report_handler.receive_achievements)
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.report_handler.receive_achievements),
+                    CallbackQueryHandler(self.report_handler.handle_callback, pattern='^cancel$')
                 ],
                 ReportStates.WAITING_PROBLEMS: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.report_handler.receive_problems)
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.report_handler.receive_problems),
+                    CallbackQueryHandler(self.report_handler.handle_callback, pattern='^cancel$')
                 ],
                 ReportStates.WAITING_PLANS: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.report_handler.receive_plans)
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.report_handler.receive_plans),
+                    CallbackQueryHandler(self.report_handler.handle_callback, pattern='^cancel$')
                 ],
                 ReportStates.WAITING_CONFIRMATION: [
-                    CallbackQueryHandler(self.report_handler.confirm_report)
+                    CallbackQueryHandler(self.report_handler.handle_callback, pattern='^confirm_report$'),
+                    CallbackQueryHandler(self.report_handler.handle_callback, pattern='^edit_report$'),
+                    CallbackQueryHandler(self.report_handler.handle_callback, pattern='^cancel$')
                 ]
             },
             fallbacks=[
@@ -214,10 +227,30 @@ class TelegramReportBot:
             ],
             states={
                 AdminStates.MAIN_MENU: [
+                    CallbackQueryHandler(self.admin_handler.handle_main_menu_callback, pattern='^admin_manage_users$'),
+                    CallbackQueryHandler(self.admin_handler.handle_main_menu_callback, pattern='^admin_manage_depts$'),
+                    CallbackQueryHandler(self.admin_handler.handle_main_menu_callback, pattern='^admin_reports$'),
+                    CallbackQueryHandler(self.admin_handler.handle_main_menu_callback, pattern='^admin_reminders$'),
+                    CallbackQueryHandler(self.admin_handler.handle_main_menu_callback, pattern='^admin_export$'),
                     CallbackQueryHandler(self.admin_handler.handle_admin_callback, pattern='^admin_'),
-                    CallbackQueryHandler(self.admin_handler.handle_reminder_action, pattern='^reminder_'),
-                    CallbackQueryHandler(self.admin_handler.handle_reports_action, pattern='^reports_'),
-                    CallbackQueryHandler(self.admin_handler.handle_export_action, pattern='^export_'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_callback, pattern='^reminder_'),
+                    CallbackQueryHandler(self.admin_handler.handle_reports_callback, pattern='^reports_'),
+                    CallbackQueryHandler(self.admin_handler.handle_export_callback, pattern='^export_'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_action, pattern='^reminder_send_all$'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_action, pattern='^reminder_send_missing$'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_action, pattern='^reminder_settings$'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_action, pattern='^reminder_send_dept$'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_action, pattern='^reminder_schedule$'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_action, pattern='^toggle_auto_reminders$'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_callback, pattern='^set_reminder_time$'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_callback, pattern='^set_reminder_days$'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_callback, pattern='^save_reminder_settings$'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_callback, pattern='^time_'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_callback, pattern='^days_'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_callback, pattern='^schedule_reminder_'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_callback, pattern='^custom_time_input$'),
+                    CallbackQueryHandler(self.admin_handler.handle_reminder_action, pattern='^send_reminder_to_dept_'),
+                    CallbackQueryHandler(self.admin_handler.handle_admin_callback, pattern='^admin_exit$')
                 ],
                 AdminStates.MANAGE_USERS: [
                     CallbackQueryHandler(self.admin_handler.user_management_handler.handle_callback, pattern='^admin_'),
@@ -312,6 +345,29 @@ class TelegramReportBot:
         
         if not update.message:
             return
+        
+        # Валидация входящего сообщения
+        if not update.message.text or not update.message.text.strip():
+            logger.warning(f"Получено пустое сообщение от пользователя {update.effective_user.id}")
+            return
+        
+        # Проверка на слишком длинные сообщения
+        if len(update.message.text) > 1000:
+            await update.message.reply_text(
+                "❌ Сообщение слишком длинное. Пожалуйста, используйте команды из меню."
+            )
+            return
+        
+        # Проверка на потенциально опасные элементы
+        dangerous_patterns = ['<script', '<iframe', '<object', '<embed', '<form']
+        text_lower = update.message.text.lower()
+        for pattern in dangerous_patterns:
+            if pattern in text_lower:
+                logger.warning(f"Обнаружен потенциально опасный контент от пользователя {update.effective_user.id}")
+                await update.message.reply_text(
+                    "❌ Сообщение содержит недопустимые элементы. Пожалуйста, используйте команды из меню."
+                )
+                return
             
         user = update.effective_user
         is_admin = user.id in settings.get_admin_ids()
@@ -347,10 +403,19 @@ class TelegramReportBot:
         try:
             logger.info("Настройка Telegram приложения...")
             
-            # Создаем приложение
+            # Создание приложения с увеличенными таймаутами
+            from telegram.request import HTTPXRequest
+            request = HTTPXRequest(
+                connection_pool_size=8,
+                connect_timeout=settings.connect_timeout,
+                read_timeout=settings.read_timeout,
+                write_timeout=settings.write_timeout
+            )
+            
             self.application = (
                 Application.builder()
                 .token(settings.telegram_bot_token)
+                .request(request)
                 .build()
             )
             

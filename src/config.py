@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
     timezone: str = os.getenv("TIMEZONE", "Europe/Moscow")
     
+    # Network Settings
+    request_timeout: int = int(os.getenv("REQUEST_TIMEOUT", "30"))
+    connect_timeout: int = int(os.getenv("CONNECT_TIMEOUT", "10"))
+    read_timeout: int = int(os.getenv("READ_TIMEOUT", "30"))
+    write_timeout: int = int(os.getenv("WRITE_TIMEOUT", "30"))
+    
     # Admin Settings
     admin_user_ids: str = os.getenv("ADMIN_USER_IDS", "")
     

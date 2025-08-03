@@ -148,7 +148,7 @@ def get_report_confirmation_keyboard():
     keyboard = [
         [InlineKeyboardButton("✅ Отправить отчет", callback_data="confirm_report")],
         [InlineKeyboardButton("✏️ Редактировать", callback_data="edit_report")],
-        [InlineKeyboardButton("❌ Отменить", callback_data="cancel_report")],
+        [InlineKeyboardButton("❌ Отменить", callback_data="cancel")],
         [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -156,13 +156,13 @@ def get_report_confirmation_keyboard():
 def get_admin_main_keyboard():
     """Клавиатура главного меню администратора"""
     keyboard = [
-        [InlineKeyboardButton("📊 Просмотр отчетов", callback_data="admin_view_reports")],
-        [InlineKeyboardButton("📢 Отправить напоминание", callback_data="admin_send_reminder")],
+        [InlineKeyboardButton("📊 Просмотр отчетов", callback_data="admin_reports")],
+        [InlineKeyboardButton("📢 Отправить напоминание", callback_data="admin_reminders")],
         [InlineKeyboardButton("👥 Управление пользователями", callback_data="admin_manage_users")],
-        [InlineKeyboardButton("🗄️ Управление отделами", callback_data="admin_manage_departments")],
-        [InlineKeyboardButton("📤 Экспорт данных", callback_data="admin_export_data")],
+        [InlineKeyboardButton("🗄️ Управление отделами", callback_data="admin_manage_depts")],
+        [InlineKeyboardButton("📤 Экспорт данных", callback_data="admin_export")],
         [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")],
-        [InlineKeyboardButton("❌ Закрыть", callback_data="admin_close")]
+        [InlineKeyboardButton("❌ Закрыть", callback_data="admin_exit")]
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -221,6 +221,32 @@ def get_back_to_main_keyboard():
         [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_main")]
     ]
     return InlineKeyboardMarkup(keyboard)
+
+def admin_back(context):
+    """Возврат в админ-панели"""
+    if 'path' in context.user_data:
+        # Если мы в админ-панели, возвращаемся к главному админ-меню
+        if any('admin' in p for p in context.user_data['path']):
+            context.user_data['path'] = ['admin']
+        else:
+            context.user_data['path'] = ['main']
+    return context.user_data.get('path', ['admin'])
+
+def back_to_main(context):
+    """Возврат в главное меню"""
+    if 'path' in context.user_data:
+        context.user_data['path'] = ['main']
+    return context.user_data.get('path', ['main'])
+
+def cancel(context):
+    """Отмена операции"""
+    if 'path' in context.user_data and context.user_data['path']:
+        # Возвращаемся на предыдущий уровень или в главное меню
+        if len(context.user_data['path']) > 1:
+            context.user_data['path'].pop()
+        else:
+            context.user_data['path'] = ['main']
+    return context.user_data.get('path', ['main'])
 
 async def get_departments_keyboard(db_manager):
     """Клавиатура для выбора отдела из базы данных"""

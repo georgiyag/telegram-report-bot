@@ -50,7 +50,7 @@ def create_keyboard(buttons: List[List[Tuple[str, str]]], path: Optional[List[st
     
     if show_home and path and path != ['main']:
         # Добавляем кнопку "В главное меню"
-        nav_buttons.append(InlineKeyboardButton("🏠 Главное меню", callback_data='back_main'))
+        nav_buttons.append(InlineKeyboardButton("🏠 Главное меню", callback_data='back_to_main'))
     
     if nav_buttons:
         keyboard.append(nav_buttons)
@@ -73,3 +73,19 @@ def go_back_path(context):
     if 'path' in context.user_data and context.user_data['path']:
         context.user_data['path'].pop()
     return context.user_data.get('path', [])
+
+def back_to_main(context):
+    """Возврат в главное меню"""
+    if 'path' in context.user_data:
+        context.user_data['path'] = ['main']
+    return context.user_data.get('path', ['main'])
+
+def cancel(context):
+    """Отмена операции"""
+    if 'path' in context.user_data and context.user_data['path']:
+        # Возвращаемся на предыдущий уровень или в главное меню
+        if len(context.user_data['path']) > 1:
+            context.user_data['path'].pop()
+        else:
+            context.user_data['path'] = ['main']
+    return context.user_data.get('path', ['main'])

@@ -86,11 +86,79 @@ class UserManagementHandler:
         elif data.startswith('admin_edit_user_'):
             user_id = int(data.split('_')[-1])
             # Логика редактирования пользователя
-            await query.edit_message_text(f"Редактирование пользователя {user_id} (не реализовано).")
+            await query.edit_message_text(
+                f"✏️ <b>Редактирование пользователя {user_id}</b>\n\n"
+                f"🔧 Функция редактирования будет добавлена в следующих обновлениях.\n\n"
+                f"💡 Пока вы можете удалить пользователя и создать нового.",
+                parse_mode='HTML'
+            )
+            return AdminStates.MANAGE_USERS
+        elif data.startswith('admin_delete_user_'):
+            user_id = int(data.split('_')[-1])
+            # Логика удаления пользователя
+            try:
+                user = await self.db_manager.get_employee_by_id(user_id)
+                if user:
+                    await query.edit_message_text(
+                        f"🗑️ <b>Удаление пользователя</b>\n\n"
+                        f"👤 <b>Пользователь:</b> {user.full_name}\n"
+                        f"🏢 <b>Отдел:</b> {user.department_code}\n\n"
+                        f"⚠️ Вы уверены, что хотите удалить этого пользователя?\n"
+                        f"Это действие нельзя отменить!",
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton("✅ Да, удалить", callback_data=f"confirm_delete_user_{user_id}")],
+                            [InlineKeyboardButton("❌ Отмена", callback_data="admin_cancel_user_action")]
+                        ]),
+                        parse_mode='HTML'
+                    )
+                else:
+                    await query.edit_message_text(
+                        "❌ Пользователь не найден.",
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton("⬅️ Назад", callback_data="admin_back")]
+                        ])
+                    )
+            except Exception as e:
+                logger.error(f"Ошибка при получении пользователя для удаления: {e}")
+                await query.edit_message_text(
+                    "❌ Ошибка при получении данных пользователя.",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("⬅️ Назад", callback_data="admin_back")]
+                    ])
+                )
+            return AdminStates.MANAGE_USERS
+        elif data.startswith('confirm_delete_user_'):
+            user_id = int(data.split('_')[-1])
+            try:
+                success = await self.db_manager.delete_employee(user_id)
+                if success:
+                    await query.edit_message_text(
+                        "✅ <b>Пользователь успешно удален</b>\n\n"
+                        "Возвращаемся к списку пользователей...",
+                        parse_mode='HTML'
+                    )
+                    # Возвращаемся к списку пользователей
+                    return await self.show_user_list(update, context)
+                else:
+                    await query.edit_message_text(
+                        "❌ Ошибка при удалении пользователя.",
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton("⬅️ Назад", callback_data="admin_back")]
+                        ])
+                    )
+            except Exception as e:
+                logger.error(f"Ошибка при удалении пользователя: {e}")
+                await query.edit_message_text(
+                    "❌ Произошла ошибка при удалении пользователя.",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("⬅️ Назад", callback_data="admin_back")]
+                    ])
+                )
             return AdminStates.MANAGE_USERS
         elif data == 'admin_back':
             # Возврат в главное меню админки
-            # Это должно обрабатываться в ConversationHandler админки
             return AdminStates.MAIN_MENU
+        elif data == 'admin_cancel_user_action':
+            return await self.show_user_list(update, context)
 
         return AdminStates.MANAGE_USERS

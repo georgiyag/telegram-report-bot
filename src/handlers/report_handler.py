@@ -207,6 +207,23 @@ class ReportHandler:
             await query.edit_message_text("Ошибка: неверный выбор отдела")
             return ConversationHandler.END
     
+    def _validate_message_text(self, text: str) -> tuple[bool, str]:
+        """Валидация текстового сообщения"""
+        if not text or not text.strip():
+            return False, "❌ Сообщение не может быть пустым. Пожалуйста, введите текст."
+        
+        if len(text) > 4000:
+            return False, "❌ Сообщение слишком длинное (максимум 4000 символов). Пожалуйста, сократите текст."
+        
+        # Проверка на потенциально опасные HTML теги
+        dangerous_tags = ['<script', '<iframe', '<object', '<embed', '<form']
+        text_lower = text.lower()
+        for tag in dangerous_tags:
+            if tag in text_lower:
+                return False, "❌ Сообщение содержит недопустимые элементы. Пожалуйста, используйте только обычный текст."
+        
+        return True, ""
+    
     async def receive_tasks(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Получение выполненных задач"""
         user_id = update.effective_user.id
@@ -215,6 +232,15 @@ class ReportHandler:
         if user_id not in self.user_reports:
             await update.message.reply_text("Ошибка: отчет не найден. Начните заново с /report")
             return ConversationHandler.END
+        
+        # Валидация входящего текста
+        is_valid, error_message = self._validate_message_text(tasks_text)
+        if not is_valid:
+            await update.message.reply_text(
+                f"{error_message}\n\nПожалуйста, попробуйте еще раз:",
+                reply_markup=get_cancel_keyboard()
+            )
+            return ReportStates.WAITING_TASKS
         
         self.user_reports[user_id].completed_tasks = tasks_text
         logger.info(f"Пользователь {user_id} добавил задачи в отчет")
@@ -236,6 +262,15 @@ class ReportHandler:
             await update.message.reply_text("Ошибка: отчет не найден. Начните заново с /report")
             return ConversationHandler.END
         
+        # Валидация входящего текста
+        is_valid, error_message = self._validate_message_text(achievements_text)
+        if not is_valid:
+            await update.message.reply_text(
+                f"{error_message}\n\nПожалуйста, попробуйте еще раз:",
+                reply_markup=get_cancel_keyboard()
+            )
+            return ReportStates.WAITING_ACHIEVEMENTS
+        
         self.user_reports[user_id].achievements = achievements_text
         logger.info(f"Пользователь {user_id} добавил достижения в отчет")
         
@@ -256,6 +291,15 @@ class ReportHandler:
             await update.message.reply_text("Ошибка: отчет не найден. Начните заново с /report")
             return ConversationHandler.END
         
+        # Валидация входящего текста
+        is_valid, error_message = self._validate_message_text(problems_text)
+        if not is_valid:
+            await update.message.reply_text(
+                f"{error_message}\n\nПожалуйста, попробуйте еще раз:",
+                reply_markup=get_cancel_keyboard()
+            )
+            return ReportStates.WAITING_PROBLEMS
+        
         self.user_reports[user_id].problems = problems_text
         logger.info(f"Пользователь {user_id} добавил проблемы в отчет")
         
@@ -274,6 +318,15 @@ class ReportHandler:
         if user_id not in self.user_reports:
             await update.message.reply_text("Ошибка: отчет не найден. Начните заново с /report")
             return ConversationHandler.END
+        
+        # Валидация входящего текста
+        is_valid, error_message = self._validate_message_text(plans_text)
+        if not is_valid:
+            await update.message.reply_text(
+                f"{error_message}\n\nПожалуйста, попробуйте еще раз:",
+                reply_markup=get_cancel_keyboard()
+            )
+            return ReportStates.WAITING_PLANS
         
         self.user_reports[user_id].next_week_plans = plans_text
         logger.info(f"Пользователь {user_id} добавил планы в отчет")
@@ -459,6 +512,52 @@ class ReportHandler:
             await query.edit_message_text("🚫 Задача отменена.")
         else:
             await query.edit_message_text("❌ Не удалось отменить задачу.")
+    
+    async def edit_report(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        """Редактирование отчета"""
+        query = update.callback_query
+        await query.answer()
+        
+        user_id = query.from_user.id
+        
+        if user_id not in self.user_reports:
+            await query.edit_message_text("Ошибка: отчет не найден. Начните заново с /report")
+            return ConversationHandler.END
+        
+        # Предлагаем начать заново
+        await query.edit_message_text(
+            "📝 <b>Редактирование отчета</b>\n\n"
+            "Для редактирования отчета начните процесс заново.\n\n"
+            "Используйте команду /report или кнопку 'Создать отчет'.",
+            parse_mode='HTML'
+        )
+        
+        # Очищаем текущий отчет
+        if user_id in self.user_reports:
+            del self.user_reports[user_id]
+        
+        return ConversationHandler.END
+    
+    async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+        """Обработка callback запросов для создания отчетов"""
+        query = update.callback_query
+        await query.answer()
+        
+        data = query.data
+        
+        if data == 'start_report':
+            return await self.start_report_process(update, context)
+        elif data == 'cancel':
+            return await self.cancel_report(update, context)
+        elif data == 'confirm_report':
+            return await self.confirm_report(update, context)
+        elif data == 'edit_report':
+            return await self.edit_report(update, context)
+        elif data.startswith('cancel_task_'):
+            await self.cancel_task_callback(update, context)
+            return ConversationHandler.END
+        
+        return ConversationHandler.END
     
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Показать статус отчета пользователя."""

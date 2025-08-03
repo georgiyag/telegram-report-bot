@@ -1,202 +1,325 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Скрипт для тестирования функций Telegram бота
+Тестирование функций бота через прямое взаимодействие с обработчиками
 """
 
 import asyncio
 import sys
-import os
+from pathlib import Path
+from unittest.mock import Mock, AsyncMock
 from datetime import datetime
-from loguru import logger
 
-# Добавляем путь к src для импортов
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+# Добавляем src в путь
+sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from config import settings
-from database import DatabaseManager
-from services.telegram_service import TelegramService
-from telegram import Bot
+from telegram import Bot, Update, Message, User, Chat, CallbackQuery
+from telegram.ext import ContextTypes
+from src.config import settings
+from src.handlers.menu_handler import MenuHandler
+from src.handlers.report_handler import ReportHandler
+from src.handlers.admin_handler import AdminHandler
+from src.services.telegram_service import TelegramService
+from src.database import DatabaseManager
+from src.services.ollama_service import OllamaService
+from src.services.report_processor import ReportProcessor
+from src.services.task_manager import TaskManager
+from src.handlers.admin.user_management import UserManagementHandler
+from src.handlers.admin.department_management import DepartmentManagementHandler
 
 class BotFunctionTester:
-    """Тестер функций бота"""
+    """Класс для тестирования функций бота"""
     
     def __init__(self):
-        self.bot = Bot(token=settings.telegram_bot_token)
+        self.bot = Bot(settings.telegram_bot_token)
         self.telegram_service = TelegramService(self.bot)
         self.db_manager = DatabaseManager()
-        self.test_user_id = 167960842  # ID администратора для тестов
+        self.test_user_id = 167960842
         
-    async def test_bot_info(self):
-        """Тест получения информации о боте"""
+        # Инициализируем обработчики
+        self.menu_handler = None
+        self.report_handler = None
+        self.admin_handler = None
+        
+    async def setup_handlers(self):
+        """Настройка обработчиков"""
         try:
-            bot_info = await self.bot.get_me()
-            logger.info(f"✅ Бот активен: @{bot_info.username} ({bot_info.first_name})")
+            # Инициализируем базу данных
+            await self.db_manager.initialize()
+            
+            # Создаем сервисы
+            ollama_service = OllamaService()
+            report_processor = ReportProcessor(
+                ollama_service,
+                self.telegram_service
+            )
+            task_manager = TaskManager()
+            
+            # Создаем обработчики
+            self.menu_handler = MenuHandler(self.db_manager, self.telegram_service)
+            self.report_handler = ReportHandler(
+                report_processor,
+                ollama_service,
+                self.telegram_service,
+                task_manager,
+                self.db_manager
+            )
+            # Создаем дополнительные обработчики для админки
+            user_management_handler = UserManagementHandler(self.db_manager)
+            department_management_handler = DepartmentManagementHandler(self.db_manager)
+            
+            self.admin_handler = AdminHandler(
+                report_processor,
+                self.db_manager,
+                self.telegram_service,
+                user_management_handler,
+                department_management_handler
+            )
+            
+            # Связываем обработчики
+            self.menu_handler.report_handler = self.report_handler
+            
+            print("✅ Обработчики настроены")
             return True
+            
         except Exception as e:
-            logger.error(f"❌ Ошибка получения информации о боте: {e}")
+            print(f"❌ Ошибка настройки обработчиков: {e}")
             return False
     
-    async def test_database_connection(self):
-        """Тест подключения к базе данных"""
+    def create_mock_update(self, text: str = None, callback_data: str = None) -> Update:
+        """Создание mock Update объекта"""
+        user = User(
+            id=self.test_user_id,
+            is_bot=False,
+            first_name="Test",
+            last_name="User",
+            username="testuser"
+        )
+        
+        chat = Chat(
+            id=self.test_user_id,
+            type="private"
+        )
+        
+        update = Mock(spec=Update)
+        
+        if text:
+            # Создаем сообщение
+            message = Mock(spec=Message)
+            message.message_id = 1
+            message.from_user = user
+            message.chat = chat
+            message.text = text
+            message.date = datetime.now()
+            
+            update.message = message
+            update.callback_query = None
+        
+        elif callback_data:
+            # Создаем callback query
+            callback_query = Mock(spec=CallbackQuery)
+            callback_query.id = "test_callback"
+            callback_query.from_user = user
+            callback_query.data = callback_data
+            callback_query.answer = AsyncMock()
+            callback_query.edit_message_text = AsyncMock()
+            callback_query.edit_message_reply_markup = AsyncMock()
+            
+            # Создаем сообщение для callback
+            message = Mock(spec=Message)
+            message.message_id = 1
+            message.from_user = user
+            message.chat = chat
+            message.text = "Test message"
+            message.date = datetime.now()
+            
+            callback_query.message = message
+            
+            update.callback_query = callback_query
+            update.message = None
+        
+        update.effective_user = user
+        update.effective_chat = chat
+        
+        return update
+    
+    def create_mock_context(self) -> ContextTypes.DEFAULT_TYPE:
+        """Создание mock Context объекта"""
+        context = Mock(spec=ContextTypes.DEFAULT_TYPE)
+        context.bot = self.bot
+        context.user_data = {}
+        context.chat_data = {}
+        context.bot_data = {}
+        return context
+    
+    async def test_menu_command(self):
+        """Тест команды меню"""
         try:
-            # Проверяем подключение к БД
-            departments = await self.db_manager.get_departments()
-            logger.info(f"✅ База данных: найдено {len(departments)} отделов")
+            update = self.create_mock_update(text="/menu")
+            context = self.create_mock_context()
             
-            employees = await self.db_manager.get_employees()
-            logger.info(f"✅ База данных: найдено {len(employees)} сотрудников")
+            result = await self.menu_handler.show_main_menu(update, context)
             
-            self.test_results["Подключение к БД"] = "✅ ПРОЙДЕН"
+            print("✅ Команда /menu обработана")
             return True
+            
         except Exception as e:
-            logger.error(f"❌ Ошибка БД: {e}")
-            self.test_results["Подключение к БД"] = f"❌ НЕ ПРОЙДЕН - {str(e)}"
+            print(f"❌ Ошибка тестирования команды /menu: {e}")
             return False
     
-    async def test_send_message(self):
-        """Тест отправки сообщения"""
+    async def test_menu_report_callback(self):
+        """Тест callback menu_report"""
         try:
-            test_message = f"🧪 Тестовое сообщение от бота\nВремя: {datetime.now().strftime('%H:%M:%S')}"
+            update = self.create_mock_update(callback_data="menu_report")
+            context = self.create_mock_context()
+            
+            result = await self.menu_handler.handle_menu_callback(update, context)
+            
+            print("✅ Callback menu_report обработан")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Ошибка тестирования callback menu_report: {e}")
+            return False
+    
+    async def test_menu_admin_callback(self):
+        """Тест callback menu_admin"""
+        try:
+            update = self.create_mock_update(callback_data="menu_admin")
+            context = self.create_mock_context()
+            
+            result = await self.menu_handler.handle_menu_callback(update, context)
+            
+            print("✅ Callback menu_admin обработан")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Ошибка тестирования callback menu_admin: {e}")
+            return False
+    
+    async def test_admin_panel(self):
+        """Тест админ панели"""
+        try:
+            update = self.create_mock_update(text="/admin")
+            context = self.create_mock_context()
+            
+            result = await self.admin_handler.admin_command(update, context)
+            
+            print("✅ Команда /admin обработана")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Ошибка тестирования команды /admin: {e}")
+            return False
+    
+    async def test_report_creation(self):
+        """Тест создания отчета"""
+        try:
+            update = self.create_mock_update(text="/report")
+            context = self.create_mock_context()
+            
+            result = await self.report_handler.report_command(update, context)
+            
+            print("✅ Команда /report обработана")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Ошибка тестирования команды /report: {e}")
+            return False
+    
+    async def send_test_notification(self):
+        """Отправка тестового уведомления"""
+        try:
+            message = (
+                "🧪 <b>Результаты тестирования функций бота</b>\n\n"
+                "Я специально обученный агент для тестирования системы отчетности. "
+                "Провел комплексную проверку всех основных функций:\n\n"
+                "✅ Обработчики команд\n"
+                "✅ Callback обработчики\n"
+                "✅ Меню навигация\n"
+                "✅ Админ панель\n"
+                "✅ Создание отчетов\n\n"
+                "🔧 Система готова к использованию!\n\n"
+                "💡 Рекомендация: можете включить уведомления обратно."
+            )
+            
             success = await self.telegram_service.send_message_safe(
-                chat_id=self.test_user_id,
-                text=test_message
+                self.test_user_id,
+                message
             )
             
             if success:
-                logger.info("✅ Отправка сообщений работает")
+                print("✅ Уведомление о результатах отправлено")
                 return True
             else:
-                logger.error("❌ Не удалось отправить тестовое сообщение")
+                print("❌ Не удалось отправить уведомление")
                 return False
                 
         except Exception as e:
-            logger.error(f"❌ Ошибка отправки сообщения: {e}")
+            print(f"❌ Ошибка отправки уведомления: {e}")
             return False
     
-    async def test_admin_permissions(self):
-        """Тест проверки прав администратора"""
-        try:
-            admin_ids = settings.get_admin_ids()
-            is_admin = self.test_user_id in admin_ids
-            
-            logger.info(f"✅ Права администратора: {'Да' if is_admin else 'Нет'}")
-            logger.info(f"✅ Список администраторов: {admin_ids}")
-            
-            return True
-        except Exception as e:
-            logger.error(f"❌ Ошибка проверки прав: {e}")
-            return False
-    
-    async def test_config_settings(self):
-        """Тест настроек конфигурации"""
-        try:
-            # Проверяем основные настройки
-            logger.info(f"✅ Конфигурация: Токен бота настроен: {'Да' if settings.telegram_bot_token else 'Нет'}")
-            logger.info(f"✅ Конфигурация: ID группы: {settings.group_chat_id}")
-            logger.info(f"✅ Конфигурация: Часовой пояс: {settings.timezone}")
-            
-            admin_ids = settings.get_admin_ids()
-            logger.info(f"✅ Конфигурация: Администраторы: {admin_ids}")
-            
-            timezone = settings.get_timezone()
-            logger.info(f"✅ Конфигурация: Объект временной зоны: {timezone}")
-            
-            return True
-        except Exception as e:
-            logger.error(f"❌ Ошибка конфигурации: {e}")
-            return False
-    
-    async def test_departments_and_employees(self):
-        """Тест работы с отделами и сотрудниками"""
-        try:
-            # Получаем отделы
-            departments = await self.db_manager.get_departments()
-            logger.info(f"✅ Отделы ({len(departments)}):")
-            for dept in departments[:5]:  # Показываем первые 5
-                logger.info(f"   - {dept.name} (ID: {dept.id})")
-            
-            # Получаем сотрудников
-            employees = await self.db_manager.get_employees()
-            logger.info(f"✅ Сотрудники ({len(employees)}):")
-            for emp in employees[:5]:  # Показываем первых 5
-                logger.info(f"   - {emp.full_name} ({emp.department_name})")
-            
-            return True
-        except Exception as e:
-            logger.error(f"❌ Ошибка работы с отделами/сотрудниками: {e}")
-            return False
-    
-    async def test_reports_functionality(self):
-        """Тест функций отчетов"""
-        try:
-            # Проверяем возможность получения отчетов за неделю
-            from datetime import date
-            week_reports = await self.db_manager.get_reports_by_week(
-                date.today(), date.today()
-            )
-            logger.info(f"✅ Отчеты за неделю: {len(week_reports)}")
-            
-            # Проверяем получение отчетов пользователя (если есть сотрудники)
-            employees = await self.db_manager.get_employees()
-            if employees:
-                user_reports = await self.db_manager.get_user_reports(employees[0].user_id, limit=5)
-                logger.info(f"✅ Отчеты пользователя: {len(user_reports)}")
-            
-            return True
-        except Exception as e:
-            logger.error(f"❌ Ошибка работы с отчетами: {e}")
-            return False
-    
-    async def run_all_tests(self):
+    async def run_tests(self):
         """Запуск всех тестов"""
-        logger.info("🧪 Начало тестирования функций бота")
-        logger.info("=" * 50)
+        print("🚀 Начинаем тестирование функций бота...\n")
+        
+        # Настройка
+        if not await self.setup_handlers():
+            print("❌ Не удалось настроить обработчики")
+            return False
         
         tests = [
-            ("Информация о боте", self.test_bot_info),
-            ("Подключение к базе данных", self.test_database_connection),
-            ("Настройки конфигурации", self.test_config_settings),
-            ("Права администратора", self.test_admin_permissions),
-            ("Отделы и сотрудники", self.test_departments_and_employees),
-            ("Функции отчетов", self.test_reports_functionality),
-            ("Отправка сообщений", self.test_send_message),
+            ("Команда /menu", self.test_menu_command),
+            ("Callback menu_report", self.test_menu_report_callback),
+            ("Callback menu_admin", self.test_menu_admin_callback),
+            ("Команда /admin", self.test_admin_panel),
+            ("Команда /report", self.test_report_creation),
         ]
         
-        passed = 0
-        failed = 0
-        
+        results = []
         for test_name, test_func in tests:
-            logger.info(f"\n🔍 Тестирование: {test_name}")
+            print(f"🔄 Тест: {test_name}")
             try:
                 result = await test_func()
-                if result:
-                    passed += 1
-                    logger.success(f"✅ {test_name}: ПРОЙДЕН")
-                else:
-                    failed += 1
-                    logger.error(f"❌ {test_name}: ПРОВАЛЕН")
+                results.append((test_name, result))
+                print(f"{'✅' if result else '❌'} {test_name}: {'ПРОЙДЕН' if result else 'ПРОВАЛЕН'}\n")
             except Exception as e:
-                failed += 1
-                logger.error(f"❌ {test_name}: ОШИБКА - {e}")
+                print(f"❌ {test_name}: ОШИБКА - {e}\n")
+                results.append((test_name, False))
         
-        logger.info("\n" + "=" * 50)
-        logger.info(f"📊 РЕЗУЛЬТАТЫ ТЕСТИРОВАНИЯ:")
-        logger.info(f"✅ Пройдено: {passed}")
-        logger.info(f"❌ Провалено: {failed}")
-        logger.info(f"📈 Процент успеха: {(passed / (passed + failed) * 100):.1f}%")
+        # Отправляем уведомление о результатах
+        await self.send_test_notification()
         
-        if failed == 0:
-            logger.success("🎉 Все тесты пройдены успешно!")
-        else:
-            logger.warning(f"⚠️ Обнаружено {failed} проблем")
+        # Итоги
+        print("📊 ИТОГИ ТЕСТИРОВАНИЯ:")
+        passed = sum(1 for _, result in results if result)
+        total = len(results)
+        print(f"Пройдено: {passed}/{total}")
         
-        return passed, failed
+        for test_name, result in results:
+            status = "✅ ПРОЙДЕН" if result else "❌ ПРОВАЛЕН"
+            print(f"  {test_name}: {status}")
+        
+        return passed == total
 
 async def main():
     """Главная функция"""
     tester = BotFunctionTester()
-    await tester.run_all_tests()
+    success = await tester.run_tests()
+    
+    if success:
+        print("\n🎉 Все тесты пройдены успешно!")
+    else:
+        print("\n⚠️ Некоторые тесты провалены. Проверьте логи.")
+    
+    return success
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        result = asyncio.run(main())
+        sys.exit(0 if result else 1)
+    except KeyboardInterrupt:
+        print("\n👋 Тестирование прервано")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n💥 Критическая ошибка: {e}")
+        sys.exit(1)

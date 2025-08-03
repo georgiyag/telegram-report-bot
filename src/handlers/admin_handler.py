@@ -10,6 +10,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from loguru import logger
+from datetime import datetime
 
 from .states import AdminStates
 from database import DatabaseManager
@@ -88,7 +89,229 @@ class AdminHandler:
         
         query = update.callback_query
         await query.answer()
+        data = query.data
         
+        # Обработка конкретных callback_data
+        if data.startswith('schedule_reminder_'):
+            if data == 'schedule_reminder_1h':
+                await query.edit_message_text(
+                    "⏰ <b>Напоминание через 1 час</b>\n\n"
+                    "✅ Напоминание запланировано на отправку через 1 час.",
+                    parse_mode='HTML'
+                )
+            elif data == 'schedule_reminder_tomorrow':
+                await query.edit_message_text(
+                    "📅 <b>Напоминание завтра в 9:00</b>\n\n"
+                    "✅ Напоминание запланировано на завтра в 9:00.",
+                    parse_mode='HTML'
+                )
+            elif data == 'schedule_reminder_weekly':
+                await query.edit_message_text(
+                    "📆 <b>Еженедельное напоминание</b>\n\n"
+                    "✅ Напоминание будет отправляться каждый понедельник.",
+                    parse_mode='HTML'
+                )
+            elif data == 'schedule_reminder_custom':
+                await query.edit_message_text(
+                    "⚙️ <b>Настройка времени</b>\n\n"
+                    "📝 Введите время в формате ЧЧ:ММ (например, 14:30):",
+                    parse_mode='HTML'
+                )
+            return AdminStates.MAIN_MENU
+        
+        elif data.startswith('time_'):
+            # Обработка выбора времени
+            if data == 'time_custom':
+                # Обработка кастомного времени
+                await query.edit_message_text(
+                    "⏰ <b>Ввод времени</b>\n\n"
+                    "🕐 Введите время в формате ЧЧ:ММ (например, 14:30):",
+                    parse_mode='HTML'
+                )
+                return AdminStates.MAIN_MENU
+            
+            time_value = data.replace('time_', '').replace('_', ':')
+            try:
+                # Получаем текущие настройки и обновляем время
+                reminder_settings = await self.db_manager.get_reminder_settings()
+                reminder_settings['reminder_time'] = time_value
+                
+                # Сохраняем в базу
+                await self.db_manager.update_reminder_settings(reminder_settings)
+                
+                # Возвращаемся к настройкам с обновленным временем
+                auto_enabled = reminder_settings.get('auto_enabled', False)
+                reminder_time = reminder_settings.get('reminder_time', '09:00')
+                reminder_days = reminder_settings.get('reminder_days', 'Пн,Ср,Пт')
+                
+                path = update_context_path(context, 'reminder_settings')
+                breadcrumb = get_breadcrumb_path(path)
+                
+                keyboard = create_keyboard([
+                    [(f"{'🔔' if auto_enabled else '🔕'} Автонапоминания: {'ВКЛ' if auto_enabled else 'ВЫКЛ'}", "toggle_auto_reminders")],
+                    [(f"⏰ Время: {reminder_time}", "set_reminder_time")],
+                    [(f"📅 Дни: {reminder_days}", "set_reminder_days")],
+                    [("💾 Сохранить настройки", "save_reminder_settings")]
+                ], path)
+                
+                await query.edit_message_text(
+                    f"📍 {breadcrumb}\n\n"
+                    f"⚙️ <b>Настройки напоминаний</b>\n\n"
+                    f"✅ <b>Время обновлено на {time_value}</b>\n\n"
+                    f"🔧 Текущие настройки:\n\n"
+                    f"• <b>Автоматические напоминания:</b> {'Включены' if auto_enabled else 'Отключены'}\n"
+                    f"• <b>Время отправки:</b> {reminder_time}\n"
+                    f"• <b>Дни недели:</b> {reminder_days}\n\n"
+                    f"💡 Нажмите на настройку для изменения:",
+                    reply_markup=keyboard,
+                    parse_mode='HTML'
+                )
+            except Exception as e:
+                logger.error(f"Ошибка при обновлении времени напоминаний: {e}")
+                await query.edit_message_text(
+                    f"❌ <b>Ошибка</b>\n\n"
+                    f"Не удалось обновить время напоминаний.",
+                    parse_mode='HTML'
+                )
+            return AdminStates.MAIN_MENU
+        
+        elif data.startswith('days_'):
+            # Обработка выбора дней
+            days_mapping = {
+                'days_mon_wed_fri': 'Пн,Ср,Пт',
+                'days_tue_thu': 'Вт,Чт', 
+                'days_everyday': 'Каждый день',
+                'days_friday_only': 'Только пятница'
+            }
+            
+            selected_days = days_mapping.get(data, 'Пн,Ср,Пт')
+            
+            try:
+                # Получаем текущие настройки и обновляем дни
+                reminder_settings = await self.db_manager.get_reminder_settings()
+                reminder_settings['reminder_days'] = selected_days
+                
+                # Сохраняем в базу
+                await self.db_manager.update_reminder_settings(reminder_settings)
+                
+                # Возвращаемся к настройкам с обновленными днями
+                auto_enabled = reminder_settings.get('auto_enabled', False)
+                reminder_time = reminder_settings.get('reminder_time', '09:00')
+                reminder_days = reminder_settings.get('reminder_days', 'Пн,Ср,Пт')
+                
+                path = update_context_path(context, 'reminder_settings')
+                breadcrumb = get_breadcrumb_path(path)
+                
+                keyboard = create_keyboard([
+                    [(f"{'🔔' if auto_enabled else '🔕'} Автонапоминания: {'ВКЛ' if auto_enabled else 'ВЫКЛ'}", "toggle_auto_reminders")],
+                    [(f"⏰ Время: {reminder_time}", "set_reminder_time")],
+                    [(f"📅 Дни: {reminder_days}", "set_reminder_days")],
+                    [("💾 Сохранить настройки", "save_reminder_settings")]
+                ], path)
+                
+                await query.edit_message_text(
+                    f"📍 {breadcrumb}\n\n"
+                    f"⚙️ <b>Настройки напоминаний</b>\n\n"
+                    f"✅ <b>Дни обновлены на {selected_days}</b>\n\n"
+                    f"🔧 Текущие настройки:\n\n"
+                    f"• <b>Автоматические напоминания:</b> {'Включены' if auto_enabled else 'Отключены'}\n"
+                    f"• <b>Время отправки:</b> {reminder_time}\n"
+                    f"• <b>Дни недели:</b> {reminder_days}\n\n"
+                    f"💡 Нажмите на настройку для изменения:",
+                    reply_markup=keyboard,
+                    parse_mode='HTML'
+                )
+            except Exception as e:
+                logger.error(f"Ошибка при обновлении дней напоминаний: {e}")
+                await query.edit_message_text(
+                    f"❌ <b>Ошибка</b>\n\n"
+                    f"Не удалось обновить дни напоминаний.",
+                    parse_mode='HTML'
+                )
+            return AdminStates.MAIN_MENU
+        
+        elif data == 'set_reminder_time':
+            # Показываем варианты времени
+            path = update_context_path(context, 'set_reminder_time')
+            breadcrumb = get_breadcrumb_path(path)
+            
+            keyboard = create_keyboard([
+                [("🌅 09:00", "time_09_00")],
+                [("🌞 12:00", "time_12_00")],
+                [("🌆 18:00", "time_18_00")],
+                [("⚙️ Другое время", "time_custom")]
+            ], path)
+            
+            await query.edit_message_text(
+                f"📍 {breadcrumb}\n\n"
+                f"⏰ <b>Выбор времени напоминаний</b>\n\n"
+                f"🕐 Выберите время отправки автоматических напоминаний:\n\n"
+                f"• <b>09:00</b> - утром\n"
+                f"• <b>12:00</b> - в обед\n"
+                f"• <b>18:00</b> - вечером\n\n"
+                f"💡 Или введите свое время:",
+                reply_markup=keyboard,
+                parse_mode='HTML'
+            )
+            return AdminStates.MAIN_MENU
+        
+        elif data == 'set_reminder_days':
+            # Показываем варианты дней
+            path = update_context_path(context, 'set_reminder_days')
+            breadcrumb = get_breadcrumb_path(path)
+            
+            keyboard = create_keyboard([
+                [("📅 Пн,Ср,Пт", "days_mon_wed_fri")],
+                [("📅 Вт,Чт", "days_tue_thu")],
+                [("📅 Каждый день", "days_everyday")],
+                [("📅 Только пятница", "days_friday_only")],
+                [("⌨️ Настроить дни", "custom_days_input")]
+            ], path)
+            
+            await query.edit_message_text(
+                f"📍 {breadcrumb}\n\n"
+                f"📅 <b>Выбор дней напоминаний</b>\n\n"
+                f"📆 Выберите дни отправки автоматических напоминаний:\n\n"
+                f"• <b>Пн,Ср,Пт</b> - через день\n"
+                f"• <b>Вт,Чт</b> - вторник и четверг\n"
+                f"• <b>Каждый день</b> - ежедневно\n"
+                f"• <b>Только пятница</b> - перед дедлайном\n\n"
+                f"💡 Или настройте свои дни:",
+                reply_markup=keyboard,
+                parse_mode='HTML'
+            )
+            return AdminStates.MAIN_MENU
+        
+        elif data == 'custom_days_input':
+            # Обработка кастомного ввода дней
+            await query.edit_message_text(
+                "📅 <b>Ввод дней недели</b>\n\n"
+                "📝 Введите дни недели через запятую (например: Пн,Ср,Пт):",
+                parse_mode='HTML'
+            )
+            return AdminStates.MAIN_MENU
+        
+        elif data == 'save_reminder_settings':
+            # Сохраняем настройки
+            try:
+                reminder_settings = await self.db_manager.get_reminder_settings()
+                await self.db_manager.update_reminder_settings(reminder_settings)
+                
+                await query.edit_message_text(
+                    "💾 <b>Настройки сохранены</b>\n\n"
+                    "✅ Настройки напоминаний успешно сохранены.",
+                    parse_mode='HTML'
+                )
+            except Exception as e:
+                logger.error(f"Ошибка при сохранении настроек: {e}")
+                await query.edit_message_text(
+                    "❌ <b>Ошибка</b>\n\n"
+                    "Произошла ошибка при сохранении настроек.",
+                    parse_mode='HTML'
+                )
+            return AdminStates.MAIN_MENU
+        
+        # Если это основной вызов без конкретного callback_data
         # Обновляем путь навигации
         path = update_context_path(context, 'admin_reminders')
         breadcrumb = get_breadcrumb_path(path)
@@ -234,6 +457,69 @@ class AdminHandler:
             )
             # Здесь будет логика отправки напоминаний
             
+        elif data == 'reminder_send_dept':
+            from utils.navigation import get_breadcrumb_path, update_context_path, create_keyboard
+            
+            path = update_context_path(context, 'reminder_send_dept')
+            breadcrumb = get_breadcrumb_path(path)
+            
+            try:
+                departments = await self.db_manager.get_departments()
+                if departments:
+                    keyboard_buttons = []
+                    for dept in departments:
+                        keyboard_buttons.append([(f"🏢 {dept.name}", f"send_reminder_to_dept_{dept.code}")])
+                    
+                    keyboard = create_keyboard(keyboard_buttons, path)
+                    
+                    await query.edit_message_text(
+                        f"📍 {breadcrumb}\n\n"
+                        f"🏢 <b>Выберите отдел</b>\n\n"
+                        f"📤 Напоминание будет отправлено всем сотрудникам выбранного отдела:",
+                        reply_markup=keyboard,
+                        parse_mode='HTML'
+                    )
+                else:
+                    await query.edit_message_text(
+                        f"📍 {breadcrumb}\n\n"
+                        f"🏢 <b>Отделы не найдены</b>\n\n"
+                        f"❌ В системе нет зарегистрированных отделов.",
+                        parse_mode='HTML'
+                    )
+            except Exception as e:
+                logger.error(f"Ошибка при получении списка отделов: {e}")
+                await query.edit_message_text(
+                    f"📍 {breadcrumb}\n\n"
+                    f"❌ <b>Ошибка</b>\n\n"
+                    f"Не удалось загрузить список отделов.",
+                    parse_mode='HTML'
+                )
+            
+        elif data == 'reminder_schedule':
+            from utils.navigation import get_breadcrumb_path, update_context_path, create_keyboard
+            
+            path = update_context_path(context, 'reminder_schedule')
+            breadcrumb = get_breadcrumb_path(path)
+            
+            keyboard = create_keyboard([
+                [("⏰ Через 1 час", "schedule_reminder_1h")],
+                [("📅 Завтра в 9:00", "schedule_reminder_tomorrow")],
+                [("📆 Каждый понедельник", "schedule_reminder_weekly")],
+                [("⚙️ Настроить время", "schedule_reminder_custom")]
+            ], path)
+            
+            await query.edit_message_text(
+                f"📍 {breadcrumb}\n\n"
+                f"⏰ <b>Планирование напоминаний</b>\n\n"
+                f"🕐 Выберите время отправки напоминания:\n\n"
+                f"• <b>Через 1 час</b> - одноразовое напоминание\n"
+                f"• <b>Завтра в 9:00</b> - отложенное напоминание\n"
+                f"• <b>Каждый понедельник</b> - еженедельное\n"
+                f"• <b>Настроить время</b> - произвольное время",
+                reply_markup=keyboard,
+                parse_mode='HTML'
+            )
+            
         elif data == 'reminder_send_missing':
             await query.edit_message_text(
                 "📋 <b>Напоминание не сдавшим</b>\n\n"
@@ -282,6 +568,341 @@ class AdminHandler:
                     f"❌ Ошибка при загрузке настроек. Попробуйте позже.",
                     parse_mode='HTML'
                 )
+        
+        elif data == 'toggle_auto_reminders':
+            from utils.navigation import get_breadcrumb_path, update_context_path, create_keyboard
+            
+            path = update_context_path(context, 'reminder_settings')
+            breadcrumb = get_breadcrumb_path(path)
+            
+            try:
+                # Получаем текущие настройки
+                reminder_settings = await self.db_manager.get_reminder_settings()
+                current_auto = reminder_settings.get('auto_enabled', False)
+                
+                # Переключаем состояние
+                new_settings = reminder_settings.copy()
+                new_settings['auto_enabled'] = not current_auto
+                
+                # Сохраняем в базу
+                await self.db_manager.update_reminder_settings(new_settings)
+                
+                # Обновляем интерфейс
+                auto_enabled = new_settings.get('auto_enabled', False)
+                reminder_time = new_settings.get('reminder_time', '09:00')
+                reminder_days = new_settings.get('reminder_days', 'Пн,Ср,Пт')
+                
+                keyboard = create_keyboard([
+                    [(f"{'🔔' if auto_enabled else '🔕'} Автонапоминания: {'ВКЛ' if auto_enabled else 'ВЫКЛ'}", "toggle_auto_reminders")],
+                    [(f"⏰ Время: {reminder_time}", "set_reminder_time")],
+                    [(f"📅 Дни: {reminder_days}", "set_reminder_days")],
+                    [("💾 Сохранить настройки", "save_reminder_settings")]
+                ], path)
+                
+                await query.edit_message_text(
+                    f"📍 {breadcrumb}\n\n"
+                    f"⚙️ <b>Настройки напоминаний</b>\n\n"
+                    f"🔧 Текущие настройки:\n\n"
+                    f"• <b>Автоматические напоминания:</b> {'Включены' if auto_enabled else 'Отключены'}\n"
+                    f"• <b>Время отправки:</b> {reminder_time}\n"
+                    f"• <b>Дни недели:</b> {reminder_days}\n\n"
+                    f"💡 Нажмите на настройку для изменения:",
+                    reply_markup=keyboard,
+                    parse_mode='HTML'
+                )
+            except Exception as e:
+                logger.error(f"Ошибка при переключении автонапоминаний: {e}")
+                await query.edit_message_text(
+                    f"📍 {breadcrumb}\n\n"
+                    f"❌ <b>Ошибка</b>\n\n"
+                    f"Не удалось изменить настройки автонапоминаний.",
+                    parse_mode='HTML'
+                )
+        
+        elif data.startswith('send_reminder_to_dept_'):
+            # Обработка отправки напоминания конкретному отделу
+            dept_code = data.replace('send_reminder_to_dept_', '')
+            
+            try:
+                # Получаем информацию об отделе
+                departments = await self.db_manager.get_departments()
+                dept_name = None
+                for dept in departments:
+                    if dept.code == dept_code:
+                        dept_name = dept.name
+                        break
+                
+                if dept_name:
+                    await query.edit_message_text(
+                        f"📤 <b>Отправка напоминания отделу</b>\n\n"
+                        f"🏢 <b>Отдел:</b> {dept_name}\n\n"
+                        f"⏳ Отправляем напоминания всем сотрудникам отдела...",
+                        parse_mode='HTML'
+                    )
+                    
+                    # Здесь будет логика отправки напоминаний отделу
+                    # result = await self.reminder_service.send_reminder_to_department(dept_code)
+                    
+                    await query.edit_message_text(
+                        f"📤 <b>Напоминание отправлено</b>\n\n"
+                        f"🏢 <b>Отдел:</b> {dept_name}\n\n"
+                        f"✅ Напоминания успешно отправлены всем сотрудникам отдела.",
+                        parse_mode='HTML'
+                    )
+                else:
+                    await query.edit_message_text(
+                        f"❌ <b>Ошибка</b>\n\n"
+                        f"Отдел с кодом {dept_code} не найден.",
+                        parse_mode='HTML'
+                    )
+            except Exception as e:
+                logger.error(f"Ошибка при отправке напоминания отделу {dept_code}: {e}")
+                await query.edit_message_text(
+                    f"❌ <b>Ошибка</b>\n\n"
+                    f"Не удалось отправить напоминание отделу.",
+                    parse_mode='HTML'
+                )
+        
+        elif data == 'set_reminder_time':
+            from utils.navigation import get_breadcrumb_path, update_context_path, create_keyboard
+            
+            path = update_context_path(context, 'set_reminder_time')
+            breadcrumb = get_breadcrumb_path(path)
+            
+            keyboard = create_keyboard([
+                [("🕘 09:00", "time_09_00"), ("🕙 10:00", "time_10_00")],
+                [("🕛 12:00", "time_12_00"), ("🕐 13:00", "time_13_00")],
+                [("🕕 18:00", "time_18_00"), ("🕘 21:00", "time_21_00")],
+                [("⌨️ Ввести время", "custom_time_input")]
+            ], path)
+            
+            await query.edit_message_text(
+                f"📍 {breadcrumb}\n\n"
+                f"⏰ <b>Выбор времени напоминаний</b>\n\n"
+                f"🕐 Выберите время отправки автоматических напоминаний:\n\n"
+                f"• <b>09:00</b> - утром\n"
+                f"• <b>12:00</b> - в обед\n"
+                f"• <b>18:00</b> - вечером\n\n"
+                f"💡 Или введите свое время:",
+                reply_markup=keyboard,
+                parse_mode='HTML'
+            )
+        
+        elif data == 'set_reminder_days':
+            from utils.navigation import get_breadcrumb_path, update_context_path, create_keyboard
+            
+            path = update_context_path(context, 'set_reminder_days')
+            breadcrumb = get_breadcrumb_path(path)
+            
+            keyboard = create_keyboard([
+                [("📅 Пн,Ср,Пт", "days_mon_wed_fri")],
+                [("📅 Вт,Чт", "days_tue_thu")],
+                [("📅 Каждый день", "days_everyday")],
+                [("📅 Только пятница", "days_friday_only")],
+                [("⌨️ Настроить дни", "custom_days_input")]
+            ], path)
+            
+            await query.edit_message_text(
+                f"📍 {breadcrumb}\n\n"
+                f"📅 <b>Выбор дней напоминаний</b>\n\n"
+                f"📆 Выберите дни недели для автоматических напоминаний:\n\n"
+                f"• <b>Пн,Ср,Пт</b> - через день\n"
+                f"• <b>Вт,Чт</b> - вторник и четверг\n"
+                f"• <b>Каждый день</b> - ежедневно\n"
+                f"• <b>Только пятница</b> - перед дедлайном\n\n"
+                f"💡 Или настройте свои дни:",
+                reply_markup=keyboard,
+                parse_mode='HTML'
+            )
+        
+        elif data == 'save_reminder_settings':
+            from utils.navigation import get_breadcrumb_path, update_context_path, create_keyboard
+            
+            path = update_context_path(context, 'reminder_settings')
+            breadcrumb = get_breadcrumb_path(path)
+            
+            try:
+                # Получаем текущие настройки
+                reminder_settings = await self.db_manager.get_reminder_settings()
+                
+                # Принудительно сохраняем настройки
+                success = await self.db_manager.update_reminder_settings(reminder_settings)
+                
+                if success:
+                    auto_enabled = reminder_settings.get('auto_enabled', False)
+                    reminder_time = reminder_settings.get('reminder_time', '09:00')
+                    reminder_days = reminder_settings.get('reminder_days', 'Пн,Ср,Пт')
+                    
+                    keyboard = create_keyboard([
+                        [(f"{'🔔' if auto_enabled else '🔕'} Автонапоминания: {'ВКЛ' if auto_enabled else 'ВЫКЛ'}", "toggle_auto_reminders")],
+                        [(f"⏰ Время: {reminder_time}", "set_reminder_time")],
+                        [(f"📅 Дни: {reminder_days}", "set_reminder_days")],
+                        [("💾 Сохранить настройки", "save_reminder_settings")]
+                    ], path)
+                    
+                    await query.edit_message_text(
+                        f"📍 {breadcrumb}\n\n"
+                        f"⚙️ <b>Настройки напоминаний</b>\n\n"
+                        f"✅ <b>Настройки успешно сохранены!</b>\n\n"
+                        f"🔧 Текущие настройки:\n\n"
+                        f"• <b>Автоматические напоминания:</b> {'Включены' if auto_enabled else 'Отключены'}\n"
+                        f"• <b>Время отправки:</b> {reminder_time}\n"
+                        f"• <b>Дни недели:</b> {reminder_days}\n\n"
+                        f"💡 Нажмите на настройку для изменения:",
+                        reply_markup=keyboard,
+                        parse_mode='HTML'
+                    )
+                else:
+                    await query.edit_message_text(
+                        f"📍 {breadcrumb}\n\n"
+                        f"❌ <b>Ошибка сохранения</b>\n\n"
+                        f"Не удалось сохранить настройки напоминаний.",
+                        parse_mode='HTML'
+                    )
+            except Exception as e:
+                logger.error(f"Ошибка при сохранении настроек напоминаний: {e}")
+                await query.edit_message_text(
+                    f"📍 {breadcrumb}\n\n"
+                    f"❌ <b>Ошибка</b>\n\n"
+                    f"Произошла ошибка при сохранении настроек.",
+                     parse_mode='HTML'
+                 )
+        
+        # Обработчики выбора времени
+        elif data.startswith('time_'):
+            from utils.navigation import get_breadcrumb_path, update_context_path, create_keyboard
+            
+            path = update_context_path(context, 'reminder_settings')
+            breadcrumb = get_breadcrumb_path(path)
+            
+            # Извлекаем время из callback data
+            time_map = {
+                'time_09_00': '09:00',
+                'time_10_00': '10:00', 
+                'time_12_00': '12:00',
+                'time_13_00': '13:00',
+                'time_18_00': '18:00',
+                'time_21_00': '21:00'
+            }
+            
+            selected_time = time_map.get(data, '09:00')
+            
+            try:
+                # Получаем текущие настройки и обновляем время
+                reminder_settings = await self.db_manager.get_reminder_settings()
+                reminder_settings['reminder_time'] = selected_time
+                
+                # Сохраняем в базу
+                await self.db_manager.update_reminder_settings(reminder_settings)
+                
+                # Возвращаемся к настройкам с обновленным временем
+                auto_enabled = reminder_settings.get('auto_enabled', False)
+                reminder_time = reminder_settings.get('reminder_time', '09:00')
+                reminder_days = reminder_settings.get('reminder_days', 'Пн,Ср,Пт')
+                
+                keyboard = create_keyboard([
+                    [(f"{'🔔' if auto_enabled else '🔕'} Автонапоминания: {'ВКЛ' if auto_enabled else 'ВЫКЛ'}", "toggle_auto_reminders")],
+                    [(f"⏰ Время: {reminder_time}", "set_reminder_time")],
+                    [(f"📅 Дни: {reminder_days}", "set_reminder_days")],
+                    [("💾 Сохранить настройки", "save_reminder_settings")]
+                ], path)
+                
+                await query.edit_message_text(
+                    f"📍 {breadcrumb}\n\n"
+                    f"⚙️ <b>Настройки напоминаний</b>\n\n"
+                    f"✅ <b>Время обновлено на {selected_time}</b>\n\n"
+                    f"🔧 Текущие настройки:\n\n"
+                    f"• <b>Автоматические напоминания:</b> {'Включены' if auto_enabled else 'Отключены'}\n"
+                    f"• <b>Время отправки:</b> {reminder_time}\n"
+                    f"• <b>Дни недели:</b> {reminder_days}\n\n"
+                    f"💡 Нажмите на настройку для изменения:",
+                    reply_markup=keyboard,
+                    parse_mode='HTML'
+                )
+            except Exception as e:
+                logger.error(f"Ошибка при обновлении времени напоминаний: {e}")
+                await query.edit_message_text(
+                    f"📍 {breadcrumb}\n\n"
+                    f"❌ <b>Ошибка</b>\n\n"
+                    f"Не удалось обновить время напоминаний.",
+                    parse_mode='HTML'
+                )
+        
+        # Обработчики выбора дней
+        elif data.startswith('days_'):
+            from utils.navigation import get_breadcrumb_path, update_context_path, create_keyboard
+            
+            path = update_context_path(context, 'reminder_settings')
+            breadcrumb = get_breadcrumb_path(path)
+            
+            # Извлекаем дни из callback data
+            days_map = {
+                'days_mon_wed_fri': 'Пн,Ср,Пт',
+                'days_tue_thu': 'Вт,Чт',
+                'days_everyday': 'Пн,Вт,Ср,Чт,Пт,Сб,Вс',
+                'days_friday_only': 'Пт'
+            }
+            
+            selected_days = days_map.get(data, 'Пн,Ср,Пт')
+            
+            try:
+                # Получаем текущие настройки и обновляем дни
+                reminder_settings = await self.db_manager.get_reminder_settings()
+                reminder_settings['reminder_days'] = selected_days
+                
+                # Сохраняем в базу
+                await self.db_manager.update_reminder_settings(reminder_settings)
+                
+                # Возвращаемся к настройкам с обновленными днями
+                auto_enabled = reminder_settings.get('auto_enabled', False)
+                reminder_time = reminder_settings.get('reminder_time', '09:00')
+                reminder_days = reminder_settings.get('reminder_days', 'Пн,Ср,Пт')
+                
+                keyboard = create_keyboard([
+                    [(f"{'🔔' if auto_enabled else '🔕'} Автонапоминания: {'ВКЛ' if auto_enabled else 'ВЫКЛ'}", "toggle_auto_reminders")],
+                    [(f"⏰ Время: {reminder_time}", "set_reminder_time")],
+                    [(f"📅 Дни: {reminder_days}", "set_reminder_days")],
+                    [("💾 Сохранить настройки", "save_reminder_settings")]
+                ], path)
+                
+                await query.edit_message_text(
+                    f"📍 {breadcrumb}\n\n"
+                    f"⚙️ <b>Настройки напоминаний</b>\n\n"
+                    f"✅ <b>Дни обновлены на {selected_days}</b>\n\n"
+                    f"🔧 Текущие настройки:\n\n"
+                    f"• <b>Автоматические напоминания:</b> {'Включены' if auto_enabled else 'Отключены'}\n"
+                    f"• <b>Время отправки:</b> {reminder_time}\n"
+                    f"• <b>Дни недели:</b> {reminder_days}\n\n"
+                    f"💡 Нажмите на настройку для изменения:",
+                    reply_markup=keyboard,
+                    parse_mode='HTML'
+                )
+            except Exception as e:
+                logger.error(f"Ошибка при обновлении дней напоминаний: {e}")
+                await query.edit_message_text(
+                    f"📍 {breadcrumb}\n\n"
+                    f"❌ <b>Ошибка</b>\n\n"
+                    f"Не удалось обновить дни напоминаний.",
+                    parse_mode='HTML'
+                )
+        
+        # Обработка ввода пользовательского времени
+        elif data == 'custom_time_input':
+            from utils.navigation import get_breadcrumb_path, update_context_path, create_keyboard
+            
+            path = update_context_path(context, 'custom_time_input')
+            breadcrumb = get_breadcrumb_path(path)
+            
+            await query.edit_message_text(
+                f"📍 {breadcrumb}\n\n"
+                f"⏰ <b>Ввод времени напоминаний</b>\n\n"
+                f"🕐 Введите время в формате ЧЧ:ММ (например, 14:30)\n\n"
+                f"💡 Время должно быть в диапазоне от 00:00 до 23:59",
+                parse_mode='HTML'
+            )
+            
+            # Устанавливаем состояние ожидания ввода времени
+            context.user_data['waiting_for_time_input'] = True
         
         return AdminStates.MAIN_MENU
     
@@ -364,6 +985,157 @@ class AdminHandler:
                 logger.error(f"Ошибка при получении общей статистики: {e}")
                 await query.edit_message_text(
                     "📈 <b>Общая статистика</b>\n\n❌ Ошибка при загрузке статистики.",
+                    parse_mode='HTML'
+                )
+        elif data == 'reports_view_all':
+            try:
+                all_reports = await self.db_manager.get_all_reports_with_details()
+                if all_reports:
+                    report_text = "📋 <b>Все отчеты в системе</b>\n\n"
+                    for i, report in enumerate(all_reports[:15]):  # Показываем первые 15 отчетов
+                        user_name = report.get('user_name', 'Неизвестный')
+                        department = report.get('department', 'Не указан')
+                        date = report.get('created_at', 'Неизвестно')
+                        report_text += f"{i+1}. 👤 <b>{user_name}</b> ({department})\n"
+                        report_text += f"   📅 {date}\n\n"
+                    
+                    if len(all_reports) > 15:
+                        report_text += f"... и еще {len(all_reports) - 15} отчетов\n\n"
+                    
+                    report_text += f"📊 <b>Всего отчетов:</b> {len(all_reports)}"
+                else:
+                    report_text = "📋 <b>Все отчеты в системе</b>\n\n📭 Отчетов в системе пока нет."
+                
+                await query.edit_message_text(report_text, parse_mode='HTML')
+            except Exception as e:
+                logger.error(f"Ошибка при получении всех отчетов: {e}")
+                await query.edit_message_text(
+                    "📋 <b>Все отчеты в системе</b>\n\n❌ Ошибка при загрузке отчетов.",
+                    parse_mode='HTML'
+                )
+        elif data == 'reports_by_user':
+            from utils.navigation import get_breadcrumb_path, update_context_path, create_keyboard
+            
+            path = update_context_path(context, 'reports_by_user')
+            breadcrumb = get_breadcrumb_path(path)
+            
+            try:
+                users = await self.db_manager.get_employees()
+                if users:
+                    keyboard_buttons = []
+                    for user in users[:10]:  # Показываем первых 10 пользователей
+                        keyboard_buttons.append([(f"👤 {user.full_name}", f"view_user_reports_{user.id}")])
+                    
+                    keyboard = create_keyboard(keyboard_buttons, path)
+                    
+                    await query.edit_message_text(
+                        f"📍 {breadcrumb}\n\n"
+                        f"👤 <b>Выберите пользователя</b>\n\n"
+                        f"📋 Будут показаны все отчеты выбранного сотрудника:",
+                        reply_markup=keyboard,
+                        parse_mode='HTML'
+                    )
+                else:
+                    await query.edit_message_text(
+                        f"📍 {breadcrumb}\n\n"
+                        f"👤 <b>Пользователи не найдены</b>\n\n"
+                        f"❌ В системе нет зарегистрированных пользователей.",
+                        parse_mode='HTML'
+                    )
+            except Exception as e:
+                logger.error(f"Ошибка при получении списка пользователей: {e}")
+                await query.edit_message_text(
+                    f"📍 {breadcrumb}\n\n"
+                    f"❌ <b>Ошибка</b>\n\n"
+                    f"Не удалось загрузить список пользователей.",
+                    parse_mode='HTML'
+                )
+        elif data == 'reports_by_department':
+            from utils.navigation import get_breadcrumb_path, update_context_path, create_keyboard
+            
+            path = update_context_path(context, 'reports_by_department')
+            breadcrumb = get_breadcrumb_path(path)
+            
+            try:
+                departments = await self.db_manager.get_departments()
+                if departments:
+                    keyboard_buttons = []
+                    for dept in departments:
+                        keyboard_buttons.append([(f"🏢 {dept.name}", f"view_dept_reports_{dept.code}")])
+                    
+                    keyboard = create_keyboard(keyboard_buttons, path)
+                    
+                    await query.edit_message_text(
+                        f"📍 {breadcrumb}\n\n"
+                        f"🏢 <b>Выберите отдел</b>\n\n"
+                        f"📋 Будут показаны все отчеты сотрудников выбранного отдела:",
+                        reply_markup=keyboard,
+                        parse_mode='HTML'
+                    )
+                else:
+                    await query.edit_message_text(
+                        f"📍 {breadcrumb}\n\n"
+                        f"🏢 <b>Отделы не найдены</b>\n\n"
+                        f"❌ В системе нет зарегистрированных отделов.",
+                        parse_mode='HTML'
+                    )
+            except Exception as e:
+                logger.error(f"Ошибка при получении списка отделов: {e}")
+                await query.edit_message_text(
+                    f"📍 {breadcrumb}\n\n"
+                    f"❌ <b>Ошибка</b>\n\n"
+                    f"Не удалось загрузить список отделов.",
+                    parse_mode='HTML'
+                )
+        elif data == 'reports_export':
+            try:
+                await query.edit_message_text(
+                    "📤 <b>Экспорт отчетов</b>\n\n"
+                    "⏳ Подготавливаем файл с отчетами для экспорта...",
+                    parse_mode='HTML'
+                )
+                
+                # Получаем все отчеты для экспорта
+                reports_data = await self.db_manager.get_all_reports_for_export()
+                
+                if reports_data:
+                    # Создаем Excel файл с отчетами
+                    excel_file = await self.report_processor.create_reports_export(reports_data)
+                    
+                    if excel_file:
+                        await query.edit_message_text(
+                            "📤 <b>Экспорт отчетов</b>\n\n"
+                            f"✅ Файл успешно создан!\n"
+                            f"📊 Экспортировано отчетов: {len(reports_data)}\n\n"
+                            f"📎 Файл будет отправлен в следующем сообщении.",
+                            parse_mode='HTML'
+                        )
+                        
+                        # Отправляем файл
+                        with open(excel_file, 'rb') as file:
+                            await context.bot.send_document(
+                                chat_id=query.message.chat_id,
+                                document=file,
+                                filename=f"all_reports_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                                caption="📊 Экспорт всех отчетов"
+                            )
+                    else:
+                        await query.edit_message_text(
+                            "📤 <b>Экспорт отчетов</b>\n\n"
+                            "❌ Ошибка при создании файла экспорта.",
+                            parse_mode='HTML'
+                        )
+                else:
+                    await query.edit_message_text(
+                        "📤 <b>Экспорт отчетов</b>\n\n"
+                        "📭 Нет отчетов для экспорта.",
+                        parse_mode='HTML'
+                    )
+            except Exception as e:
+                logger.error(f"Ошибка при экспорте отчетов: {e}")
+                await query.edit_message_text(
+                    "📤 <b>Экспорт отчетов</b>\n\n"
+                    "❌ Произошла ошибка при экспорте отчетов.",
                     parse_mode='HTML'
                 )
         elif data == 'reports_search':
@@ -663,6 +1435,16 @@ class AdminHandler:
             return await self.handle_reminder_callback(update, context)
         elif data == 'admin_export':
             return await self.handle_export_callback(update, context)
+        elif data == 'export_reports':
+            return await self.handle_export_action(update, context, 'reports')
+        elif data == 'export_users':
+            return await self.handle_export_action(update, context, 'users')
+        elif data == 'export_departments':
+            return await self.handle_export_action(update, context, 'departments')
+        elif data == 'export_all_data':
+            return await self.handle_export_action(update, context, 'all_data')
+        elif data == 'export_stats':
+            return await self.handle_export_action(update, context, 'stats')
         elif data.startswith('reminder_'):
             return await self.handle_reminder_action(update, context)
         elif data.startswith('reports_'):

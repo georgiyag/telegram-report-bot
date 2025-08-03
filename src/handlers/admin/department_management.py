@@ -61,14 +61,118 @@ class DepartmentManagementHandler:
         data = query.data
 
         if data.startswith("admin_edit_dept_"):
-            return await self.edit_department_name(update, context)
+            dept_code = data.split('_')[-1]
+            try:
+                department = await self.db_manager.get_department_by_code(dept_code)
+                if department:
+                    await query.edit_message_text(
+                        f"✏️ <b>Редактирование отдела</b>\n\n"
+                        f"🏢 <b>Название:</b> {department.name}\n"
+                        f"🔤 <b>Код:</b> {department.code}\n\n"
+                        f"🔧 Функция редактирования будет добавлена в следующих обновлениях.\n\n"
+                        f"💡 Пока вы можете удалить отдел и создать новый.",
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton("🗑️ Удалить отдел", callback_data=f"admin_delete_dept_{dept_code}")],
+                            [InlineKeyboardButton("⬅️ Назад", callback_data="admin_back")]
+                        ]),
+                        parse_mode='HTML'
+                    )
+                else:
+                    await query.edit_message_text(
+                        "❌ Отдел не найден.",
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton("⬅️ Назад", callback_data="admin_back")]
+                        ])
+                    )
+            except Exception as e:
+                logger.error(f"Ошибка при получении отдела для редактирования: {e}")
+                await query.edit_message_text(
+                    "❌ Ошибка при получении данных отдела.",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("⬅️ Назад", callback_data="admin_back")]
+                    ])
+                )
+            return AdminStates.MANAGE_DEPARTMENTS
+        elif data.startswith("admin_delete_dept_"):
+            dept_code = data.split('_')[-1]
+            try:
+                department = await self.db_manager.get_department_by_code(dept_code)
+                if department:
+                    # Проверяем, есть ли пользователи в этом отделе
+                    users_count = await self.db_manager.get_users_count_by_department(dept_code)
+                    
+                    if users_count > 0:
+                        await query.edit_message_text(
+                            f"⚠️ <b>Невозможно удалить отдел</b>\n\n"
+                            f"🏢 <b>Отдел:</b> {department.name}\n"
+                            f"👥 <b>Сотрудников в отделе:</b> {users_count}\n\n"
+                            f"❌ Нельзя удалить отдел, в котором есть сотрудники.\n"
+                            f"Сначала переведите всех сотрудников в другие отделы.",
+                            reply_markup=InlineKeyboardMarkup([
+                                [InlineKeyboardButton("⬅️ Назад", callback_data="admin_back")]
+                            ]),
+                            parse_mode='HTML'
+                        )
+                    else:
+                        await query.edit_message_text(
+                            f"🗑️ <b>Удаление отдела</b>\n\n"
+                            f"🏢 <b>Отдел:</b> {department.name}\n"
+                            f"🔤 <b>Код:</b> {department.code}\n\n"
+                            f"⚠️ Вы уверены, что хотите удалить этот отдел?\n"
+                            f"Это действие нельзя отменить!",
+                            reply_markup=InlineKeyboardMarkup([
+                                [InlineKeyboardButton("✅ Да, удалить", callback_data=f"confirm_delete_dept_{dept_code}")],
+                                [InlineKeyboardButton("❌ Отмена", callback_data="admin_back")]
+                            ]),
+                            parse_mode='HTML'
+                        )
+                else:
+                    await query.edit_message_text(
+                        "❌ Отдел не найден.",
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton("⬅️ Назад", callback_data="admin_back")]
+                        ])
+                    )
+            except Exception as e:
+                logger.error(f"Ошибка при получении отдела для удаления: {e}")
+                await query.edit_message_text(
+                    "❌ Ошибка при получении данных отдела.",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("⬅️ Назад", callback_data="admin_back")]
+                    ])
+                )
+            return AdminStates.MANAGE_DEPARTMENTS
+        elif data.startswith("confirm_delete_dept_"):
+            dept_code = data.split('_')[-1]
+            try:
+                success = await self.db_manager.delete_department(dept_code)
+                if success:
+                    await query.edit_message_text(
+                        "✅ <b>Отдел успешно удален</b>\n\n"
+                        "Возвращаемся к списку отделов...",
+                        parse_mode='HTML'
+                    )
+                    # Возвращаемся к списку отделов
+                    return await self.show_department_list(update, context)
+                else:
+                    await query.edit_message_text(
+                        "❌ Ошибка при удалении отдела.",
+                        reply_markup=InlineKeyboardMarkup([
+                            [InlineKeyboardButton("⬅️ Назад", callback_data="admin_back")]
+                        ])
+                    )
+            except Exception as e:
+                logger.error(f"Ошибка при удалении отдела: {e}")
+                await query.edit_message_text(
+                    "❌ Произошла ошибка при удалении отдела.",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("⬅️ Назад", callback_data="admin_back")]
+                    ])
+                )
+            return AdminStates.MANAGE_DEPARTMENTS
         elif data == "admin_add_dept":
             await query.message.reply_text("Введите название нового отдела:")
             return AdminStates.ADD_DEPARTMENT_NAME
-        elif data.startswith("admin_edit_dept_"):
-            dept_code = data.split('_')[-1]
-            await query.edit_message_text(f"Редактирование отдела {dept_code} (не реализовано).")
-            return AdminStates.MANAGE_DEPARTMENTS
         elif data == "admin_back":
             return AdminStates.MAIN_MENU
 

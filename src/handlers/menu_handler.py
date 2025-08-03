@@ -124,11 +124,12 @@ class MenuHandler:
             )
             return MainMenuStates.MAIN_MENU
             
+
         elif callback_data == "menu_report":
             # Создание отчета - передаем управление report_handler
             path = update_context_path(context, 'report')
-            # Вызываем метод создания отчета
-            return await self.report_handler.report_command(update, context)
+            # Завершаем текущий conversation и передаем управление report_handler
+            return ConversationHandler.END
             
         elif callback_data == "menu_admin":
             # Обновляем путь для админ-панели
